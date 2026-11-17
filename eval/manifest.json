@@ -1,0 +1,32 @@
+{
+  "captured_on": "2026-11-17",
+  "current_subtitle_setting": "Immersive Translate 1.35.2, AI sentence split on, engine DeepL Pro",
+  "raw_dir": "raw (not committed, third-party captions)",
+  "word_file_format": "one caption event per line: <start_ms> <word>[@<offset_ms>] ... ; '>>' marks a speaker change, [laughter] and [music] are non-speech tags",
+  "videos": [
+    {
+      "id": "v1",
+      "youtube_id": "9FxpC10Iqnc",
+      "kind": "solo talk",
+      "window_sec": [1800, 2400],
+      "words": "raw/v1.words.txt",
+      "current": ["raw/v1.current_a.txt", "raw/v1.current_b.txt"]
+    },
+    {
+      "id": "v2",
+      "youtube_id": "t2AfKi1ob0Y",
+      "kind": "multi-speaker talk",
+      "window_sec": [1800, 2400],
+      "words": "raw/v2.words.txt",
+      "current": ["raw/v2.current_a.txt", "raw/v2.current_b.txt"]
+    },
+    {
+      "id": "v3",
+      "youtube_id": "lZUwwHkYW7I",
+      "kind": "solo game stream with voiced game dialogue",
+      "window_sec": [7200, 7800],
+      "words": "raw/v3.words.txt",
+      "current": ["raw/v3.current_a.txt", "raw/v3.current_b.txt"]
+    }
+  ]
+}
