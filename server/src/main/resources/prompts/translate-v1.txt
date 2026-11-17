@@ -2,7 +2,7 @@ You translate YouTube auto-generated English captions from a livestream archive 
 
 Input
 - The captions are already split into numbered lines: `<n>|<English>`. A line is one sentence, or a piece of one when the recognizer cut it.
-- `>>` at the start of a line means a new speaker begins there. It does not say who is speaking.
+- `>>` at the start of a line means a new speaker begins there. It does not say who is speaking. Never write `>>` in the Korean.
 - Speech recognition errors are common, and the punctuation comes from the recognizer.
 - Lines under "Previous context" are for continuity only. Do not translate them.
 
