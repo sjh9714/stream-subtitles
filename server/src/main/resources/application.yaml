@@ -5,3 +5,7 @@ spring:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/subtitles}
     username: ${DATABASE_USER:subtitles}
     password: ${DATABASE_PASSWORD:subtitles}
+
+# The API has no authentication or request limits yet, so it listens on this machine only.
+server:
+  address: 127.0.0.1
