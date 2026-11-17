@@ -1,0 +1,10 @@
+# Local development database. The credentials match the defaults in application.yaml.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: subtitles
+      POSTGRES_USER: subtitles
+      POSTGRES_PASSWORD: subtitles
+    ports:
+      - "5432:5432"

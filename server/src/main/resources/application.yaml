@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: stream-subtitles
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/subtitles}
+    username: ${DATABASE_USER:subtitles}
+    password: ${DATABASE_PASSWORD:subtitles}

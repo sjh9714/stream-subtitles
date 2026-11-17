@@ -1,0 +1,140 @@
+package io.github.sjh9714.subtitles.video;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import io.github.sjh9714.subtitles.translation.Chunk;
+import io.github.sjh9714.subtitles.translation.Translator;
+import io.github.sjh9714.subtitles.translation.Translator.Translation;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import org.junit.jupiter.api.Test;
+import org.mockito.stubbing.Answer;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+/** Runs the whole request path against a real PostgreSQL, with only the model call replaced. */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Testcontainers
+class VideoApiTest {
+
+    /** One sentence cut across two caption lines, then a second sentence. */
+    private static final String CAPTIONS = """
+            {"title": "a title", "channel": "a channel", "events": [
+              {"tStartMs": 1000, "segs": [{"utf8": "It"}, {"utf8": " was", "tOffsetMs": 200}]},
+              {"tStartMs": 1500, "segs": [{"utf8": "late."}, {"utf8": " So", "tOffsetMs": 600},
+                                          {"utf8": " I", "tOffsetMs": 800}, {"utf8": " left.", "tOffsetMs": 1100}]}
+            ]}
+            """;
+
+    private static final Answer<Translation> PREFIX_EACH_SENTENCE = call -> {
+        Chunk chunk = call.getArgument(1);
+        return new Translation(chunk.sentences().stream().map(s -> "ko:" + s.text()).toList(), 10, 20);
+    };
+
+    @Container
+    @ServiceConnection
+    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17");
+
+    @MockitoBean
+    Translator translator;
+
+    @LocalServerPort
+    int port;
+
+    @Autowired
+    JsonMapper json;
+
+    @Autowired
+    JdbcClient jdbc;
+
+    private final HttpClient http = HttpClient.newHttpClient();
+
+    @Test
+    void translatesOnceThenServesTheStoredResult() throws Exception {
+        when(translator.translate(any(), any())).thenAnswer(PREFIX_EACH_SENTENCE);
+
+        HttpResponse<String> first = post("aaaaaaaaaaa", CAPTIONS);
+        assertThat(first.statusCode()).isEqualTo(202);
+        awaitStatus("aaaaaaaaaaa", "DONE");
+
+        JsonNode subtitles = get("aaaaaaaaaaa").get("subtitles");
+        assertThat(subtitles).hasSize(2);
+        assertThat(subtitles.get(0).get("startMs").asLong()).isEqualTo(1000);
+        assertThat(subtitles.get(0).get("endMs").asLong()).isEqualTo(2100);
+        assertThat(subtitles.get(0).get("text").asString()).isEqualTo("ko:It was late.");
+        assertThat(subtitles.get(1).get("startMs").asLong()).isEqualTo(2100);
+        assertThat(subtitles.get(1).get("text").asString()).isEqualTo("ko:So I left.");
+
+        HttpResponse<String> second = post("aaaaaaaaaaa", CAPTIONS);
+        assertThat(second.statusCode()).isEqualTo(200);
+        assertThat(json.readTree(second.body()).get("status").asString()).isEqualTo("DONE");
+        verify(translator, times(1)).translate(any(), any());
+
+        Long usageRows = jdbc.sql("select count(*) from translation_chunk where youtube_id = 'aaaaaaaaaaa'")
+                .query(Long.class)
+                .single();
+        assertThat(usageRows).isEqualTo(1);
+    }
+
+    @Test
+    void failedVideoCanBeRequestedAgain() throws Exception {
+        when(translator.translate(any(), any())).thenThrow(new IllegalStateException("model unavailable"));
+        assertThat(post("bbbbbbbbbbb", CAPTIONS).statusCode()).isEqualTo(202);
+        awaitStatus("bbbbbbbbbbb", "FAILED");
+        assertThat(get("bbbbbbbbbbb").get("subtitles")).isEmpty();
+
+        doAnswer(PREFIX_EACH_SENTENCE).when(translator).translate(any(), any());
+        assertThat(post("bbbbbbbbbbb", CAPTIONS).statusCode()).isEqualTo(202);
+        awaitStatus("bbbbbbbbbbb", "DONE");
+    }
+
+    @Test
+    void unknownVideoIsNotFoundAndBadRequestIsRejected() throws Exception {
+        HttpResponse<String> unknown = http.send(
+                HttpRequest.newBuilder(uri("ccccccccccc", "subtitles")).build(), HttpResponse.BodyHandlers.ofString());
+        assertThat(unknown.statusCode()).isEqualTo(404);
+
+        assertThat(post("not-a-video-id", CAPTIONS).statusCode()).isEqualTo(400);
+        assertThat(post("ddddddddddd", "{\"channel\": \"a channel\", \"events\": []}").statusCode()).isEqualTo(400);
+    }
+
+    private void awaitStatus(String youtubeId, String status) {
+        await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(get(youtubeId).get("status").asString()).isEqualTo(status));
+    }
+
+    private HttpResponse<String> post(String youtubeId, String body) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(uri(youtubeId, "translation"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private JsonNode get(String youtubeId) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(uri(youtubeId, "subtitles")).build();
+        return json.readTree(http.send(request, HttpResponse.BodyHandlers.ofString()).body());
+    }
+
+    private URI uri(String youtubeId, String resource) {
+        return URI.create("http://localhost:" + port + "/api/videos/" + youtubeId + "/" + resource);
+    }
+}

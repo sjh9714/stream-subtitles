@@ -4,7 +4,25 @@
 
 ## 상태
 
-설계 단계입니다. 아직 실행할 수 있는 코드가 없습니다.
+서버 뼈대가 있습니다. 자막 원본을 받아 문장 단위로 다시 묶고, 구간별로 번역해 저장합니다. 확장 프로그램, 용어집, 비용 상한, 인증은 아직 없고 배포하지 않았습니다.
+
+## 실행
+
+Java 21과 Docker가 필요합니다.
+
+```sh
+cd server
+./gradlew test                       # 테스트. PostgreSQL 컨테이너를 잠깐 띄웁니다
+docker compose up -d                 # 로컬 개발용 DB
+ANTHROPIC_API_KEY=... ./gradlew bootRun
+```
+
+| 요청 | 하는 일 |
+|---|---|
+| `POST /api/videos/{영상 번호}/translation` | 자막 원본(json3의 events)을 받아 번역을 시작합니다. 이미 처리했거나 처리 중이면 새로 시작하지 않습니다 |
+| `GET /api/videos/{영상 번호}/subtitles` | 처리 상태와 저장된 자막을 돌려줍니다 |
+
+`eval/`에는 평가 구간 목록과 결함을 세는 스크립트가 있습니다. 자막 원자료(`eval/raw/`)는 남의 방송 자막이라 저장소에 올리지 않습니다.
 
 ## 풀려는 문제
 
