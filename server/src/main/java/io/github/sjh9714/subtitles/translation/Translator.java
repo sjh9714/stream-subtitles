@@ -1,15 +1,13 @@
 package io.github.sjh9714.subtitles.translation;
 
-import java.util.List;
-
-/** Translates one chunk. The reply has exactly one line per sentence, in order. */
+/** Asks the model to translate one chunk. The caller checks the reply with {@link TranslationReply}. */
 public interface Translator {
 
-    Translation translate(VideoInfo video, Chunk chunk);
+    Reply translate(VideoInfo video, Chunk chunk);
 
     /** What the model is told about the video. */
     record VideoInfo(String title, String channel) {}
 
-    /** A blank line means the sentence has nothing worth showing, such as a lone filler. */
-    record Translation(List<String> lines, long inputTokens, long outputTokens) {}
+    /** The model's raw text and what the call was billed for. */
+    record Reply(String text, long inputTokens, long outputTokens) {}
 }

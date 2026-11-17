@@ -19,6 +19,11 @@ class TranslationReplyTest {
     }
 
     @Test
+    void copiedSpeakerMarkIsDropped() {
+        assertThat(TranslationReply.parse("1|>> 응\n2|>>그래", 2)).containsExactly("응", "그래");
+    }
+
+    @Test
     void missingLineIsRejected() {
         assertThatThrownBy(() -> TranslationReply.parse("1|하나", 2)).isInstanceOf(MalformedReplyException.class);
     }

@@ -29,7 +29,7 @@ class ClaudeTranslator implements Translator {
     private AnthropicClient client;
 
     @Override
-    public Translation translate(VideoInfo video, Chunk chunk) {
+    public Reply translate(VideoInfo video, Chunk chunk) {
         MessageCreateParams params = MessageCreateParams.builder()
                 .model(MODEL)
                 .maxTokens(MAX_TOKENS)
@@ -51,10 +51,7 @@ class ClaudeTranslator implements Translator {
                 .flatMap(block -> block.text().stream())
                 .map(text -> text.text())
                 .collect(Collectors.joining());
-        return new Translation(
-                TranslationReply.parse(reply, chunk.sentences().size()),
-                message.usage().inputTokens(),
-                message.usage().outputTokens());
+        return new Reply(reply, message.usage().inputTokens(), message.usage().outputTokens());
     }
 
     private synchronized AnthropicClient client() {

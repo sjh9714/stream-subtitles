@@ -6,13 +6,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Reads the model's {@code <n>|<Korean>} lines and rejects a reply that does not cover every sentence once. */
-final class TranslationReply {
+public final class TranslationReply {
 
-    private static final Pattern LINE = Pattern.compile("^(\\d+)\\|(.*)$");
+    /** The model copies the input's speaker mark to the start of a line even when told not to, so it is dropped here. */
+    private static final Pattern LINE = Pattern.compile("^(\\d+)\\|\\s*(?:>>)?(.*)$");
 
     private TranslationReply() {}
 
-    static List<String> parse(String reply, int expected) {
+    /** Returns one line per sentence, in order. A blank line means the sentence has nothing worth showing. */
+    public static List<String> parse(String reply, int expected) {
         String[] lines = new String[expected];
         for (String raw : reply.split("\n")) {
             if (raw.isBlank()) {
@@ -36,7 +38,7 @@ final class TranslationReply {
         return Arrays.asList(lines);
     }
 
-    static final class MalformedReplyException extends RuntimeException {
+    public static final class MalformedReplyException extends RuntimeException {
         MalformedReplyException(String message) {
             super(message);
         }

@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 
 import io.github.sjh9714.subtitles.translation.Chunk;
 import io.github.sjh9714.subtitles.translation.Translator;
-import io.github.sjh9714.subtitles.translation.Translator.Translation;
+import io.github.sjh9714.subtitles.translation.Translator.Reply;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -44,9 +44,13 @@ class VideoApiTest {
             ]}
             """;
 
-    private static final Answer<Translation> PREFIX_EACH_SENTENCE = call -> {
+    private static final Answer<Reply> PREFIX_EACH_SENTENCE = call -> {
         Chunk chunk = call.getArgument(1);
-        return new Translation(chunk.sentences().stream().map(s -> "ko:" + s.text()).toList(), 10, 20);
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < chunk.sentences().size(); i++) {
+            text.append(i + 1).append("|ko:").append(chunk.sentences().get(i).text()).append('\n');
+        }
+        return new Reply(text.toString(), 10, 20);
     };
 
     @Container
@@ -104,6 +108,22 @@ class VideoApiTest {
         doAnswer(PREFIX_EACH_SENTENCE).when(translator).translate(any(), any());
         assertThat(post("bbbbbbbbbbb", CAPTIONS).statusCode()).isEqualTo(202);
         awaitStatus("bbbbbbbbbbb", "DONE");
+    }
+
+    @Test
+    void replyThatSkipsALineIsAskedAgainAndBothCallsAreCounted() throws Exception {
+        when(translator.translate(any(), any()))
+                .thenReturn(new Reply("1|ko:It was late.\n", 10, 20))
+                .thenAnswer(PREFIX_EACH_SENTENCE);
+
+        assertThat(post("eeeeeeeeeee", CAPTIONS).statusCode()).isEqualTo(202);
+        awaitStatus("eeeeeeeeeee", "DONE");
+
+        assertThat(get("eeeeeeeeeee").get("subtitles")).hasSize(2);
+        Long inputTokens = jdbc.sql("select input_tokens from translation_chunk where youtube_id = 'eeeeeeeeeee'")
+                .query(Long.class)
+                .single();
+        assertThat(inputTokens).isEqualTo(20);
     }
 
     @Test
