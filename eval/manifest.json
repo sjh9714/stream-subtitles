@@ -7,6 +7,8 @@
     {
       "id": "v1",
       "youtube_id": "9FxpC10Iqnc",
+      "title": "【TRAILS IN THE SKY: 1ST CHAPTER】a royal banquet and its all for ME!!!!!",
+      "channel": "Gigi Murin Ch. hololive",
       "kind": "solo talk",
       "window_sec": [1800, 2400],
       "words": "raw/v1.words.txt",
@@ -15,6 +17,8 @@
     {
       "id": "v2",
       "youtube_id": "t2AfKi1ob0Y",
+      "title": "【WILDCARD CLUB HANGOUT】Meet Team Dokibird!【Dokibird】",
+      "channel": "Dokibird",
       "kind": "multi-speaker talk",
       "window_sec": [1800, 2400],
       "words": "raw/v2.words.txt",
@@ -23,6 +27,8 @@
     {
       "id": "v3",
       "youtube_id": "lZUwwHkYW7I",
+      "title": "【The Legend of Zelda: Ocarina of Time Remake】Janondorf of the Jerudo",
+      "channel": "Koseki Bijou Ch. hololive",
       "kind": "solo game stream with voiced game dialogue",
       "window_sec": [7200, 7800],
       "words": "raw/v3.words.txt",
