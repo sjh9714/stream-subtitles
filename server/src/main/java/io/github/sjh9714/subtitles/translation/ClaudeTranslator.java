@@ -9,7 +9,6 @@ import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
 import com.anthropic.models.messages.RawMessageStreamEvent;
 import com.anthropic.models.messages.StopReason;
-import com.anthropic.models.messages.ThinkingConfigDisabled;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -36,7 +35,6 @@ class ClaudeTranslator implements Translator {
                 .maxTokens(MAX_TOKENS)
                 .system(systemPrompt)
                 .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build())
-                .thinking(ThinkingConfigDisabled.builder().build())
                 .addUserMessage(TranslationPrompt.userMessage(video, chunk))
                 .build();
 
