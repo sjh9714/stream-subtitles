@@ -2,10 +2,11 @@ spring:
   application:
     name: stream-subtitles
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/subtitles}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/subtitles}
     username: ${DATABASE_USER:subtitles}
     password: ${DATABASE_PASSWORD:subtitles}
 
 # The API has no authentication or request limits yet, so it listens on this machine only.
 server:
   address: 127.0.0.1
+  port: 8787

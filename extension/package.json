@@ -1,0 +1,11 @@
+{
+  "name": "stream-subtitles-extension",
+  "private": true,
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.0",
+    "typescript": "^5.9.0"
+  }
+}

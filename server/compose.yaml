@@ -1,4 +1,5 @@
-# Local development database. The credentials match the defaults in application.yaml.
+# Local database. The port and credentials match the defaults in application.yaml.
+# It is published on this machine only, on 5433 so it does not collide with another PostgreSQL on 5432.
 services:
   postgres:
     image: postgres:17
@@ -7,4 +8,9 @@ services:
       POSTGRES_USER: subtitles
       POSTGRES_PASSWORD: subtitles
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - subtitles-data:/var/lib/postgresql/data
+
+volumes:
+  subtitles-data:
