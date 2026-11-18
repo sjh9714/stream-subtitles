@@ -7,7 +7,7 @@ import java.util.List;
 /** Splits a video's sentences into fixed windows of video time so a long video becomes many small calls. */
 public final class Chunker {
 
-    static final long WINDOW_MS = 300_000;
+    public static final long WINDOW_MS = 300_000;
     static final int CONTEXT_SENTENCES = 3;
 
     private Chunker() {}
@@ -22,7 +22,7 @@ public final class Chunker {
                 to++;
             }
             List<Sentence> context = sentences.subList(Math.max(0, from - CONTEXT_SENTENCES), from);
-            chunks.add(new Chunk(chunks.size(), List.copyOf(context), List.copyOf(sentences.subList(from, to))));
+            chunks.add(new Chunk((int) window, List.copyOf(context), List.copyOf(sentences.subList(from, to))));
             from = to;
         }
         return chunks;

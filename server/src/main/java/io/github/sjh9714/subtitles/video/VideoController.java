@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -28,10 +29,15 @@ class VideoController {
         this.job = job;
     }
 
-    /** Starts a translation unless this video is already stored or in progress. */
+    /**
+     * Starts a translation unless this video is already stored or in progress.
+     * The position is where the viewer is watching, which is translated first.
+     */
     @PostMapping("/translation")
     ResponseEntity<StatusResponse> requestTranslation(
-            @PathVariable String youtubeId, @RequestBody TranslationRequest request) {
+            @PathVariable String youtubeId,
+            @RequestParam(defaultValue = "0") long positionMs,
+            @RequestBody TranslationRequest request) {
         if (!YOUTUBE_ID.matcher(youtubeId).matches()
                 || request.channel() == null
                 || request.events() == null
@@ -39,22 +45,27 @@ class VideoController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
         }
         if (videos.claim(youtubeId, request.channel())) {
-            job.run(youtubeId, new VideoInfo(request.title(), request.channel()), request.events());
+            job.run(youtubeId, new VideoInfo(request.title(), request.channel()), request.events(), positionMs);
             return ResponseEntity.accepted().body(new StatusResponse(VideoStatus.PENDING));
         }
         return ResponseEntity.ok(new StatusResponse(videos.findStatus(youtubeId).orElseThrow()));
     }
 
+    /** Returns what is translated so far, and moves a running translation to the viewer's position. */
     @GetMapping("/subtitles")
-    SubtitlesResponse subtitles(@PathVariable String youtubeId) {
+    SubtitlesResponse subtitles(
+            @PathVariable String youtubeId, @RequestParam(defaultValue = "0") long positionMs) {
         VideoStatus status = videos.findStatus(youtubeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        return new SubtitlesResponse(status, videos.findSubtitles(youtubeId));
+        boolean ready = status == VideoStatus.DONE
+                || (status == VideoStatus.PENDING && job.watch(youtubeId, positionMs));
+        return new SubtitlesResponse(status, ready, videos.findSubtitles(youtubeId));
     }
 
     record TranslationRequest(String title, String channel, List<CaptionEvent> events) {}
 
     record StatusResponse(VideoStatus status) {}
 
-    record SubtitlesResponse(VideoStatus status, List<Subtitle> subtitles) {}
+    /** {@code ready} says whether the viewer's position is translated, so an empty screen there means silence. */
+    record SubtitlesResponse(VideoStatus status, boolean ready, List<Subtitle> subtitles) {}
 }

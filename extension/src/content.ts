@@ -1,12 +1,15 @@
 // Asks the server for a video's subtitles, sends the captions when the server has none,
-// and shows the subtitle that belongs to the current playback time.
+// and shows the subtitle that belongs to the current playback time. While the server is still
+// translating, it keeps asking, shows what is done so far and tells the server where the viewer is.
 {
   const REQUEST = "stream-subtitles:read-captions";
   const RESULT = "stream-subtitles:captions";
-  const POLL_MS = 5000;
+  const POLL_MS = 2000;
 
   let videoId = "";
   let subtitles: Subtitle[] = [];
+  /** Shown when no subtitle covers the current time: a wait or an error, or nothing. */
+  let notice = "";
   let overlay: HTMLElement | null = null;
 
   function askServer(request: ServerRequest): Promise<ServerReply> {
@@ -61,39 +64,42 @@
     return candidate && candidate.startMs <= ms && ms < candidate.endMs ? candidate : undefined;
   }
 
-  function onTimeUpdate(event: Event) {
-    if (!subtitles.length) {
-      return;
-    }
+  function positionMs(): number {
+    const video = document.querySelector<HTMLVideoElement>("#movie_player video");
+    return video ? Math.floor(video.currentTime * 1000) : 0;
+  }
+
+  function render() {
     // While an ad plays, the video element's time belongs to the ad.
     const inAd = document.getElementById("movie_player")?.classList.contains("ad-showing");
-    const video = event.target as HTMLVideoElement;
-    show(inAd ? "" : (subtitleAt(video.currentTime * 1000)?.text ?? ""));
+    show(inAd ? "" : (subtitleAt(positionMs())?.text ?? notice));
   }
 
   async function load(id: string) {
-    let reply = await askServer({ kind: "get", videoId: id });
+    let reply = await askServer({ kind: "get", videoId: id, positionMs: positionMs() });
     if (reply.status === "NOT_FOUND" || reply.status === "FAILED") {
       const captions = await readCaptions();
       if (captions.videoId !== id) {
         throw new Error("the player is showing another video");
       }
-      reply = await askServer({ kind: "post", captions });
+      reply = await askServer({ kind: "post", captions, positionMs: positionMs() });
     }
-    while (reply.status === "PENDING" && id === videoId) {
-      show("자막 번역 중");
+    while (id === videoId) {
+      subtitles = reply.subtitles ?? subtitles;
+      if (reply.status !== "PENDING") {
+        break;
+      }
+      notice = reply.ready ? "" : "자막 번역 중";
+      render();
       await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-      reply = await askServer({ kind: "get", videoId: id });
+      reply = await askServer({ kind: "get", videoId: id, positionMs: positionMs() });
     }
     if (id !== videoId) {
       return; // the viewer moved to another video while this one was loading
     }
-    if (reply.status === "DONE") {
-      subtitles = reply.subtitles ?? [];
-      show("");
-    } else {
-      show(reply.status === "UNREACHABLE" ? "자막 서버에 연결할 수 없음" : "자막 번역 실패");
-    }
+    notice =
+      reply.status === "DONE" ? "" : reply.status === "UNREACHABLE" ? "자막 서버에 연결할 수 없음" : "자막 번역 실패";
+    render();
   }
 
   function start() {
@@ -103,14 +109,20 @@
     }
     videoId = id;
     subtitles = [];
-    show("");
+    notice = "";
+    render();
     if (id) {
-      load(id).catch((error) => id === videoId && show(`자막을 읽지 못함: ${error.message}`));
+      load(id).catch((error) => {
+        if (id === videoId) {
+          notice = `자막을 읽지 못함: ${error.message}`;
+          render();
+        }
+      });
     }
   }
 
   // The video element does not bubble timeupdate, so it is caught on the way down.
-  document.addEventListener("timeupdate", onTimeUpdate, true);
+  document.addEventListener("timeupdate", render, true);
   // YouTube changes videos without reloading the page and fires this event when it does.
   document.addEventListener("yt-navigate-finish", start);
   start();

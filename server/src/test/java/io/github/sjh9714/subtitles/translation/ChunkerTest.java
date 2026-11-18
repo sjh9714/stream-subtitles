@@ -16,7 +16,7 @@ class ChunkerTest {
     void sentencesAreGroupedByWindowOfVideoTime() {
         List<Chunk> chunks = Chunker.split(List.of(at(0), at(299_999), at(300_000), at(900_000)));
 
-        assertThat(chunks).extracting(Chunk::index).containsExactly(0, 1, 2);
+        assertThat(chunks).extracting(Chunk::index).containsExactly(0, 1, 3);
         assertThat(chunks.get(0).sentences()).containsExactly(at(0), at(299_999));
         assertThat(chunks.get(1).sentences()).containsExactly(at(300_000));
         assertThat(chunks.get(2).sentences()).containsExactly(at(900_000));

@@ -2,6 +2,7 @@ package io.github.sjh9714.subtitles.video;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -20,7 +21,8 @@ public class VideoRepository {
 
     /**
      * Claims a video for translation. Returns false when another request already holds it or it is done,
-     * so two requests for the same video start only one job. A failed video can be claimed again.
+     * so two requests for the same video start only one job. A failed video can be claimed again, and
+     * the chunks it already saved are kept.
      */
     public boolean claim(String youtubeId, String channel) {
         return jdbc.sql("""
@@ -43,28 +45,45 @@ public class VideoRepository {
     }
 
     public List<Subtitle> findSubtitles(String youtubeId) {
-        return jdbc.sql("select seq, start_ms, end_ms, text from subtitle where youtube_id = :id order by seq")
+        return jdbc.sql("""
+                        select seq, start_ms, end_ms, text from subtitle
+                        where youtube_id = :id order by chunk_index, seq
+                        """)
                 .param("id", youtubeId)
                 .query((row, n) -> new Subtitle(
                         row.getInt("seq"), row.getLong("start_ms"), row.getLong("end_ms"), row.getString("text")))
                 .list();
     }
 
+    /** The chunks of this video that are already translated and saved. */
+    public Set<Integer> findSavedChunks(String youtubeId) {
+        return jdbc.sql("select chunk_index from translation_chunk where youtube_id = :id")
+                .param("id", youtubeId)
+                .query(Integer.class)
+                .set();
+    }
+
+    /** Saves one chunk's subtitles together with what its model calls cost, or neither. */
     @Transactional
-    public void saveResult(String youtubeId, List<Subtitle> subtitles, List<ChunkUsage> usages) {
-        jdbc.sql("delete from subtitle where youtube_id = :id").param("id", youtubeId).update();
-        jdbc.sql("delete from translation_chunk where youtube_id = :id").param("id", youtubeId).update();
+    public void saveChunk(String youtubeId, List<Subtitle> subtitles, ChunkUsage usage) {
         jdbcTemplate.batchUpdate(
-                "insert into subtitle (youtube_id, seq, start_ms, end_ms, text) values (?, ?, ?, ?, ?)",
+                "insert into subtitle (youtube_id, chunk_index, seq, start_ms, end_ms, text) values (?, ?, ?, ?, ?, ?)",
                 subtitles.stream()
-                        .map(s -> new Object[] {youtubeId, s.seq(), s.startMs(), s.endMs(), s.text()})
+                        .map(s -> new Object[] {youtubeId, usage.chunkIndex(), s.seq(), s.startMs(), s.endMs(), s.text()})
                         .toList());
-        jdbcTemplate.batchUpdate(
-                "insert into translation_chunk (youtube_id, chunk_index, input_tokens, output_tokens, millis)"
-                        + " values (?, ?, ?, ?, ?)",
-                usages.stream()
-                        .map(u -> new Object[] {youtubeId, u.chunkIndex(), u.inputTokens(), u.outputTokens(), u.millis()})
-                        .toList());
+        jdbc.sql("""
+                        insert into translation_chunk (youtube_id, chunk_index, input_tokens, output_tokens, millis)
+                        values (:id, :chunk, :input, :output, :millis)
+                        """)
+                .param("id", youtubeId)
+                .param("chunk", usage.chunkIndex())
+                .param("input", usage.inputTokens())
+                .param("output", usage.outputTokens())
+                .param("millis", usage.millis())
+                .update();
+    }
+
+    public void markDone(String youtubeId) {
         jdbc.sql("update video set status = 'DONE', finished_at = now() where youtube_id = :id")
                 .param("id", youtubeId)
                 .update();
@@ -74,6 +93,18 @@ public class VideoRepository {
         jdbc.sql("update video set status = 'FAILED', error = :error, finished_at = now() where youtube_id = :id")
                 .param("id", youtubeId)
                 .param("error", error)
+                .update();
+    }
+
+    /**
+     * Fails every video still marked as in progress. Called at startup, when no job can be running,
+     * so a video cut off by a restart can be requested again instead of staying in progress forever.
+     */
+    public void failInterrupted() {
+        jdbc.sql("""
+                        update video set status = 'FAILED', error = 'interrupted by a restart', finished_at = now()
+                        where status = 'PENDING'
+                        """)
                 .update();
     }
 

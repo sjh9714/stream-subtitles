@@ -4,11 +4,12 @@
   const SERVER = "http://127.0.0.1:8787";
 
   async function call(request: ServerRequest): Promise<ServerReply> {
+    const position = `?positionMs=${request.positionMs}`;
     try {
       const response =
         request.kind === "get"
-          ? await fetch(`${SERVER}/api/videos/${request.videoId}/subtitles`)
-          : await fetch(`${SERVER}/api/videos/${request.captions.videoId}/translation`, {
+          ? await fetch(`${SERVER}/api/videos/${request.videoId}/subtitles${position}`)
+          : await fetch(`${SERVER}/api/videos/${request.captions.videoId}/translation${position}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(request.captions),

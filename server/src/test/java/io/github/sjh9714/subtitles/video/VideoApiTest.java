@@ -16,6 +16,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +46,14 @@ class VideoApiTest {
             ]}
             """;
 
+    /** One sentence in the first 5-minute chunk and one in the second. */
+    private static final String TWO_CHUNKS = """
+            {"title": "a title", "channel": "a channel", "events": [
+              {"tStartMs": 1000, "segs": [{"utf8": "Hello."}]},
+              {"tStartMs": 300000, "segs": [{"utf8": "Bye."}]}
+            ]}
+            """;
+
     private static final Answer<Reply> PREFIX_EACH_SENTENCE = call -> {
         Chunk chunk = call.getArgument(1);
         StringBuilder text = new StringBuilder();
@@ -68,6 +78,9 @@ class VideoApiTest {
 
     @Autowired
     JdbcClient jdbc;
+
+    @Autowired
+    VideoRepository videos;
 
     private final HttpClient http = HttpClient.newHttpClient();
 
@@ -127,6 +140,55 @@ class VideoApiTest {
     }
 
     @Test
+    void finishedChunkIsServedWhileAnotherIsStillWithTheModel() throws Exception {
+        CountDownLatch secondChunkMayFinish = new CountDownLatch(1);
+        when(translator.translate(any(), any())).thenAnswer(call -> {
+            if (call.<Chunk>getArgument(1).index() == 1) {
+                secondChunkMayFinish.await();
+            }
+            return PREFIX_EACH_SENTENCE.answer(call);
+        });
+
+        assertThat(post("fffffffffff", TWO_CHUNKS).statusCode()).isEqualTo(202);
+        await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(get("fffffffffff").get("subtitles")).hasSize(1));
+
+        JsonNode atFirstChunk = get("fffffffffff", 0);
+        assertThat(atFirstChunk.get("status").asString()).isEqualTo("PENDING");
+        assertThat(atFirstChunk.get("ready").asBoolean()).isTrue();
+        assertThat(get("fffffffffff", 300_000).get("ready").asBoolean()).isFalse();
+
+        secondChunkMayFinish.countDown();
+        awaitStatus("fffffffffff", "DONE");
+        JsonNode subtitles = get("fffffffffff").get("subtitles");
+        assertThat(subtitles.get(0).get("text").asString()).isEqualTo("ko:Hello.");
+        assertThat(subtitles.get(1).get("text").asString()).isEqualTo("ko:Bye.");
+    }
+
+    @Test
+    void videoCutOffByARestartTranslatesOnlyTheMissingChunk() throws Exception {
+        when(translator.translate(any(), any())).thenAnswer(PREFIX_EACH_SENTENCE);
+        jdbc.sql("insert into video (youtube_id, channel, status) values ('ggggggggggg', 'a channel', 'PENDING')")
+                .update();
+        videos.saveChunk(
+                "ggggggggggg",
+                List.of(new Subtitle(0, 1000, 4000, "saved before the restart")),
+                new VideoRepository.ChunkUsage(0, 10, 20, 30));
+
+        videos.failInterrupted();
+        assertThat(get("ggggggggggg").get("status").asString()).isEqualTo("FAILED");
+
+        assertThat(post("ggggggggggg", TWO_CHUNKS).statusCode()).isEqualTo(202);
+        awaitStatus("ggggggggggg", "DONE");
+
+        verify(translator, times(1)).translate(any(), any());
+        JsonNode subtitles = get("ggggggggggg").get("subtitles");
+        assertThat(subtitles).hasSize(2);
+        assertThat(subtitles.get(0).get("text").asString()).isEqualTo("saved before the restart");
+        assertThat(subtitles.get(1).get("text").asString()).isEqualTo("ko:Bye.");
+    }
+
+    @Test
     void unknownVideoIsNotFoundAndBadRequestIsRejected() throws Exception {
         HttpResponse<String> unknown = http.send(
                 HttpRequest.newBuilder(uri("ccccccccccc", "subtitles")).build(), HttpResponse.BodyHandlers.ofString());
@@ -150,7 +212,11 @@ class VideoApiTest {
     }
 
     private JsonNode get(String youtubeId) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder(uri(youtubeId, "subtitles")).build();
+        return get(youtubeId, 0);
+    }
+
+    private JsonNode get(String youtubeId, long positionMs) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(uri(youtubeId, "subtitles?positionMs=" + positionMs)).build();
         return json.readTree(http.send(request, HttpResponse.BodyHandlers.ofString()).body());
     }
 
