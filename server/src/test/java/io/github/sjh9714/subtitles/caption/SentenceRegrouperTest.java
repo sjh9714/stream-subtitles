@@ -39,15 +39,41 @@ class SentenceRegrouperTest {
     }
 
     @Test
-    void runWithoutPunctuationIsCutAtTheWordLimit() {
+    void overlongRunIsCutAfterItsLastCommaUnlessThatLeavesOnlyAFewWords() {
         List<Word> words = new ArrayList<>();
-        for (int i = 0; i < SentenceRegrouper.MAX_WORDS + 5; i++) {
-            words.add(new Word("and", i * 100L, false));
+        for (int i = 0; i < SentenceRegrouper.MAX_WORDS; i++) {
+            words.add(new Word(i == 2 || i == 19 ? "and," : "and", i * 100L, false));
         }
 
         List<Sentence> sentences = SentenceRegrouper.regroup(words);
 
         assertThat(sentences).hasSize(2);
-        assertThat(sentences.get(1).startMs()).isEqualTo(SentenceRegrouper.MAX_WORDS * 100L);
+        assertThat(sentences.get(1).startMs()).isEqualTo(2000);
+    }
+
+    @Test
+    void overlongRunWithoutACommaIsCutBeforeItsLongestPause() {
+        List<Word> words = new ArrayList<>();
+        for (int i = 0; i < SentenceRegrouper.MAX_WORDS; i++) {
+            words.add(new Word("and", i * 100L + (i >= 22 ? 2000 : 0), false));
+        }
+
+        List<Sentence> sentences = SentenceRegrouper.regroup(words);
+
+        assertThat(sentences).hasSize(2);
+        assertThat(sentences.get(1).startMs()).isEqualTo(22 * 100L + 2000);
+    }
+
+    @Test
+    void overlongRunWithNoCommaAndNoWordTimesIsCutAtTheWordLimit() {
+        List<Word> words = new ArrayList<>();
+        for (int i = 0; i < SentenceRegrouper.MAX_WORDS + 5; i++) {
+            words.add(new Word("and" + i, 0, false));
+        }
+
+        List<Sentence> sentences = SentenceRegrouper.regroup(words);
+
+        assertThat(sentences).hasSize(2);
+        assertThat(sentences.get(1).text()).startsWith("and" + SentenceRegrouper.MAX_WORDS);
     }
 }
