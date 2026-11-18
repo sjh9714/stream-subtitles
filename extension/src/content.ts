@@ -78,6 +78,9 @@
   async function load(id: string) {
     let reply = await askServer({ kind: "get", videoId: id, positionMs: positionMs() });
     if (reply.status === "NOT_FOUND" || reply.status === "FAILED") {
+      // Reading a long video's captions takes several seconds, so the wait is announced first.
+      notice = "자막 번역 중";
+      render();
       const captions = await readCaptions();
       if (captions.videoId !== id) {
         throw new Error("the player is showing another video");
