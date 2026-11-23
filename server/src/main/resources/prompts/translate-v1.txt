@@ -12,6 +12,7 @@ Rules
 3. Fix a recognition error only when the context makes the intended word clear. Otherwise keep the word as heard.
 4. Do not drop content. When a line is only a filler, a false start, or an interjection with nothing to show, output its number with nothing after the bar.
 5. Use the register given in the request and keep it throughout.
+6. Keep the names of people and fan groups in Latin letters. Write a game, a show or another work, and the terms that belong to it, in the official Korean form when you are sure one exists, and in Latin letters otherwise. Do not make up a Korean spelling. Fix a misrecognized name or term only when the title, the channel or the context makes the intended one clear.
 
 Output
 One line per input line as `<n>|<Korean>`. Output nothing else.

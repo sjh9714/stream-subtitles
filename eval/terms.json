@@ -1,39 +1,45 @@
 {
-  "status": "draft, not yet confirmed by someone who knows the channels",
-  "format": "heard: the forms the speech recognizer wrote in the evaluation window. ko: the Korean forms counted as right.",
+  "status": "Researched by Claude on 2026-11-23. Not confirmed by a person who knows the channels.",
+  "rule": "Names of people and fan groups stay in Latin letters with recognition errors fixed. A game, show or other work and its terms use the official Korean form when one was found, and Latin letters otherwise.",
+  "format": "heard: forms the speech recognizer wrote in the evaluation window. right: written forms counted as right. Latin forms are matched as whole words.",
+  "sources": {
+    "Grems, Murin": "https://virtualyoutuber.fandom.com/wiki/Gigi_Murin (fan wiki)",
+    "Infernus, Haze, Ivy": "https://deadlock.wiki/Deadlock_heroes (no official Korean names found)",
+    "나보루, 겔드, 가논돌프, 하일리아인": "https://namu.moe/w/%EB%82%98%EB%B3%BC and Korean press on the 2026 release (wiki, not the game text)",
+    "Highland = Hylian": "inferred from the line, not confirmed against the game"
+  },
   "videos": {
     "v1": [
-      {"heard": ["Deadlock", "Deadlocks"], "ko": ["데드락"]},
-      {"heard": ["League of Legends"], "ko": ["리그 오브 레전드", "롤"]},
-      {"heard": ["Worlds", "World's"], "ko": ["월즈", "롤드컵"]},
-      {"heard": ["Final Fantasy"], "ko": ["파이널 판타지", "파판"]},
-      {"heard": ["heavy rain"], "ko": ["헤비 레인"]},
-      {"heard": ["Ivy"], "ko": ["아이비"]},
-      {"heard": ["Inferno"], "ko": ["인퍼누스"]},
-      {"heard": ["Hazel"], "ko": ["헤이즈"]},
-      {"heard": ["Gigi"], "ko": ["지지"]},
-      {"heard": ["Mooney"], "ko": ["무린"]},
-      {"heard": ["Liz"], "ko": ["리즈"]},
-      {"heard": ["CC"], "ko": ["CC", "씨씨"]},
-      {"heard": ["Kyoko"], "ko": ["쿄코"]},
-      {"heard": ["Grams"], "ko": ["그렘"]}
+      {"heard": ["Deadlock", "Deadlocks"], "right": ["데드락", "Deadlock"]},
+      {"heard": ["League of Legends"], "right": ["리그 오브 레전드", "롤"]},
+      {"heard": ["Worlds", "World's"], "right": ["롤드컵", "월즈", "월드 챔피언십"]},
+      {"heard": ["Final Fantasy"], "right": ["파이널 판타지", "파판"]},
+      {"heard": ["heavy rain"], "right": ["헤비 레인"]},
+      {"heard": ["Ivy"], "right": ["Ivy"]},
+      {"heard": ["Inferno"], "right": ["Infernus"]},
+      {"heard": ["Hazel"], "right": ["Haze"]},
+      {"heard": ["Gigi"], "right": ["Gigi"]},
+      {"heard": ["Mooney"], "right": ["Murin"]},
+      {"heard": ["Liz"], "right": ["Liz"]},
+      {"heard": ["CC"], "right": ["CC"]},
+      {"heard": ["Kyoko"], "right": ["Kyoko"]},
+      {"heard": ["Grams"], "right": ["Grems"]}
     ],
     "v2": [
-      {"heard": ["League"], "ko": ["롤", "리그 오브 레전드"]},
-      {"heard": ["deadlock"], "ko": ["데드락"]},
-      {"heard": ["Graves"], "ko": ["그레이브즈"]},
-      {"heard": ["Squid Game"], "ko": ["오징어 게임"]},
-      {"heard": ["The Office"], "ko": ["오피스"]},
-      {"heard": ["Ariana Grande"], "ko": ["아리아나 그란데"]},
-      {"heard": ["Taylor Swift"], "ko": ["테일러 스위프트"]},
-      {"heard": ["Spongebob"], "ko": ["스폰지밥"]},
-      {"heard": ["Twitter"], "ko": ["트위터"]}
+      {"heard": ["League"], "right": ["롤", "리그 오브 레전드"]},
+      {"heard": ["deadlock"], "right": ["데드락", "Deadlock"]},
+      {"heard": ["Graves"], "right": ["그레이브즈"]},
+      {"heard": ["Squid Game"], "right": ["오징어 게임"]},
+      {"heard": ["The Office"], "right": ["오피스"]},
+      {"heard": ["Ariana Grande"], "right": ["Ariana Grande"]},
+      {"heard": ["Taylor Swift"], "right": ["Taylor Swift"]},
+      {"heard": ["Spongebob"], "right": ["스폰지밥"]},
+      {"heard": ["Twitter"], "right": ["트위터"]}
     ],
     "v3": [
-      {"heard": ["Naboro", "Naburu"], "ko": ["나보루"]},
-      {"heard": ["Highland"], "ko": ["하일리아"]},
-      {"heard": ["Mirage Desert"], "ko": ["환영의 사막"]},
-      {"heard": ["Link"], "ko": ["링크"]}
+      {"heard": ["Naboro", "Naburu"], "right": ["나보루"]},
+      {"heard": ["Highland"], "right": ["하일리아인"]},
+      {"heard": ["Link"], "right": ["링크"]}
     ]
   }
 }

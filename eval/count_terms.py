@@ -1,8 +1,9 @@
-"""Count how often an agreed Korean term is missing from saved server outputs.
+"""Count how often a term is not written the agreed way in saved server outputs.
 
 terms.json lists, per evaluation video, the forms the recognizer wrote for a term and the
-Korean forms counted as right. The term was said as often as a recognizer form appears in
-the window's captions, and a run misses it as often as that exceeds the Korean forms found.
+written forms counted as right. The term was said as often as a recognizer form appears in
+the window's captions, and a run misses it as often as that exceeds the right forms found.
+A form in Latin letters is matched as a whole word, so "Hazel" does not count as "Haze".
 
 Usage: python eval/count_terms.py <label>
 """
@@ -15,6 +16,12 @@ from collections import defaultdict
 from count_baseline import ROOT, load_tokens
 
 
+def count(form, text):
+    if form.isascii():
+        return len(re.findall(rf"(?<![A-Za-z]){re.escape(form)}(?![A-Za-z])", text))
+    return text.count(form)
+
+
 def main():
     label = sys.argv[1]
     manifest = json.loads((ROOT / "manifest.json").read_text())
@@ -23,7 +30,7 @@ def main():
     for video in manifest["videos"]:
         source = " ".join(word for word, _, _ in load_tokens(video["words"]))
         said = {
-            term["ko"][0]: sum(len(re.findall(rf"\b{re.escape(form)}\b", source, re.I)) for form in term["heard"])
+            term["right"][0]: sum(len(re.findall(rf"\b{re.escape(form)}\b", source, re.I)) for form in term["heard"])
             for term in terms[video["id"]]
         }
         outputs = defaultdict(str)
@@ -32,9 +39,9 @@ def main():
         for rep, korean in sorted(outputs.items()):
             missed = {}
             for term in terms[video["id"]]:
-                found = sum(korean.count(form) for form in term["ko"])
-                if said[term["ko"][0]] > found:
-                    missed[term["ko"][0]] = said[term["ko"][0]] - found
+                found = sum(count(form, korean) for form in term["right"])
+                if said[term["right"][0]] > found:
+                    missed[term["right"][0]] = said[term["right"][0]] - found
             print(f"{video['id']}    {label:12} {rep} {sum(said.values()):5} {sum(missed.values()):7}  "
                   + ", ".join(f"{name} {count}" for name, count in missed.items()))
 
