@@ -17,6 +17,18 @@ interface Subtitle {
   text: string;
 }
 
+/** What the page script answers when asked for captions. The video id is the one the player holds. */
+interface CaptionsResult {
+  videoId: string;
+  captions?: Captions;
+  error?: string;
+}
+
+/** What the background worker tells a tab when the viewer clicks the extension's icon. */
+interface TranslateClick {
+  kind: "translate";
+}
+
 /**
  * What the content script asks the background worker to do. Only the worker may call the server.
  * The position is where the viewer is watching, which the server translates first.

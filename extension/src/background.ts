@@ -26,6 +26,15 @@
     }
   }
 
+  // A click on the icon asks for the video in that tab to be translated. Tabs without the content
+  // script, which is every page that is not YouTube, have nobody to receive it.
+  chrome.action.onClicked.addListener((tab) => {
+    if (tab.id !== undefined) {
+      const click: TranslateClick = { kind: "translate" };
+      chrome.tabs.sendMessage(tab.id, click).catch(() => {});
+    }
+  });
+
   chrome.runtime.onMessage.addListener((request: ServerRequest, _sender, sendResponse) => {
     call(request).then(sendResponse);
     return true; // the reply is sent after the fetch finishes

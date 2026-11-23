@@ -1,33 +1,58 @@
-// Asks the server for a video's subtitles, sends the captions when the server has none,
-// and shows the subtitle that belongs to the current playback time. While the server is still
-// translating, it keeps asking, shows what is done so far and tells the server where the viewer is.
+// Shows a video's stored subtitles at the current playback time. A video is sent for translation
+// only when the viewer clicks the extension's icon, because every translation costs money.
+// While the server is still translating, this keeps asking, shows what is done so far and tells
+// the server where the viewer is.
 {
   const REQUEST = "stream-subtitles:read-captions";
   const RESULT = "stream-subtitles:captions";
   const POLL_MS = 2000;
+  const NOTICE_MS = 4000;
+  const READ_TRIES = 5;
+  const NO_CAPTIONS = "no English captions";
 
   let videoId = "";
   let subtitles: Subtitle[] = [];
   /** Shown when no subtitle covers the current time: a wait or an error, or nothing. */
   let notice = "";
   let overlay: HTMLElement | null = null;
+  /** Counts loads, so a load replaced by a newer one stops. */
+  let loads = 0;
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   function askServer(request: ServerRequest): Promise<ServerReply> {
     return chrome.runtime.sendMessage(request);
   }
 
-  function readCaptions(): Promise<Captions> {
-    return new Promise((resolve, reject) => {
+  function askPage(): Promise<CaptionsResult> {
+    return new Promise((resolve) => {
       const onMessage = (event: MessageEvent) => {
         if (event.source !== window || event.data?.type !== RESULT) {
           return;
         }
         window.removeEventListener("message", onMessage);
-        event.data.captions ? resolve(event.data.captions) : reject(new Error(event.data.error));
+        resolve(event.data);
       };
       window.addEventListener("message", onMessage);
       window.postMessage({ type: REQUEST }, location.origin);
     });
+  }
+
+  /** Right after moving to another video the player can still hold the previous one, so this waits for it. */
+  async function readCaptions(id: string): Promise<Captions> {
+    for (let attempt = 1; ; attempt++) {
+      const result = await askPage();
+      if (result.videoId === id) {
+        if (result.captions) {
+          return result.captions;
+        }
+        throw new Error(result.error);
+      }
+      if (attempt === READ_TRIES) {
+        throw new Error("the player is showing another video");
+      }
+      await sleep(1000);
+    }
   }
 
   /** Puts text over the video. It lives inside the player so it also shows in fullscreen. */
@@ -75,34 +100,69 @@
     show(inAd ? "" : (subtitleAt(positionMs())?.text ?? notice));
   }
 
-  async function load(id: string) {
-    let reply = await askServer({ kind: "get", videoId: id, positionMs: positionMs() });
-    if (reply.status === "NOT_FOUND" || reply.status === "FAILED") {
-      // Reading a long video's captions takes several seconds, so the wait is announced first.
-      notice = "자막 번역 중";
-      render();
-      const captions = await readCaptions();
-      if (captions.videoId !== id) {
-        throw new Error("the player is showing another video");
-      }
-      reply = await askServer({ kind: "post", captions, positionMs: positionMs() });
-    }
-    while (id === videoId) {
-      subtitles = reply.subtitles ?? subtitles;
-      if (reply.status !== "PENDING") {
-        break;
-      }
-      notice = reply.ready ? "" : "자막 번역 중";
-      render();
-      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-      reply = await askServer({ kind: "get", videoId: id, positionMs: positionMs() });
-    }
-    if (id !== videoId) {
-      return; // the viewer moved to another video while this one was loading
-    }
-    notice =
-      reply.status === "DONE" ? "" : reply.status === "UNREACHABLE" ? "자막 서버에 연결할 수 없음" : "자막 번역 실패";
+  /** Sets the notice. A wait stays until it is replaced. An error goes away by itself. */
+  function tell(text: string, stays: boolean) {
+    notice = text;
     render();
+    if (text && !stays) {
+      setTimeout(() => {
+        if (notice === text) {
+          notice = "";
+          render();
+        }
+      }, NOTICE_MS);
+    }
+  }
+
+  /**
+   * Shows what the server has for this video. Without a click it only looks: a video the server
+   * does not know is left alone, and so is a server that is not running.
+   */
+  async function load(id: string, clicked: boolean) {
+    const mine = ++loads;
+    const current = () => mine === loads && id === videoId;
+    const send = async () => {
+      tell("자막 번역 중", true); // reading a long video's captions alone takes several seconds
+      return askServer({ kind: "post", captions: await readCaptions(id), positionMs: positionMs() });
+    };
+    try {
+      let reply = await askServer({ kind: "get", videoId: id, positionMs: positionMs() });
+      if (!clicked && (reply.status === "NOT_FOUND" || reply.status === "UNREACHABLE")) {
+        return;
+      }
+      if (reply.status === "NOT_FOUND") {
+        reply = await send();
+      }
+      let resent = false;
+      while (current()) {
+        subtitles = reply.subtitles ?? subtitles;
+        if (reply.status === "FAILED" && !resent) {
+          // The server was restarted or a chunk failed. Sending again translates only what is missing.
+          resent = true;
+          reply = await send();
+          continue;
+        }
+        if (reply.status !== "PENDING") {
+          break;
+        }
+        tell(reply.ready ? "" : "자막 번역 중", true);
+        await sleep(POLL_MS);
+        reply = await askServer({ kind: "get", videoId: id, positionMs: positionMs() });
+      }
+      if (!current()) {
+        return; // the viewer moved to another video, or clicked again
+      }
+      if (reply.status === "DONE") {
+        tell("", true);
+      } else {
+        tell(reply.status === "UNREACHABLE" ? "자막 서버에 연결할 수 없음" : "자막 번역 실패", false);
+      }
+    } catch (error) {
+      if (current()) {
+        const reason = error instanceof Error ? error.message : String(error);
+        tell(reason === NO_CAPTIONS ? "영어 자막이 없는 영상" : `자막을 읽지 못함: ${reason}`, false);
+      }
+    }
   }
 
   function start() {
@@ -112,15 +172,10 @@
     }
     videoId = id;
     subtitles = [];
-    notice = "";
-    render();
+    loads++;
+    tell("", true);
     if (id) {
-      load(id).catch((error) => {
-        if (id === videoId) {
-          notice = `자막을 읽지 못함: ${error.message}`;
-          render();
-        }
-      });
+      load(id, false);
     }
   }
 
@@ -128,5 +183,15 @@
   document.addEventListener("timeupdate", render, true);
   // YouTube changes videos without reloading the page and fires this event when it does.
   document.addEventListener("yt-navigate-finish", start);
+  // The background worker passes on a click on the extension's icon.
+  chrome.runtime.onMessage.addListener((message: TranslateClick) => {
+    if (message?.kind !== "translate") {
+      return;
+    }
+    start(); // the address changes before YouTube says it finished moving, so catch up first
+    if (videoId) {
+      load(videoId, true);
+    }
+  });
   start();
 }

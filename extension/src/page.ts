@@ -4,9 +4,7 @@
   const REQUEST = "stream-subtitles:read-captions";
   const RESULT = "stream-subtitles:captions";
 
-  async function readCaptions(): Promise<Captions> {
-    const player = document.getElementById("movie_player") as any;
-    const response = player?.getPlayerResponse?.();
+  async function readCaptions(response: any): Promise<Captions> {
     const tracks: any[] = response?.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
     // Auto-generated captions carry a start time for every word. Uploaded ones do not.
     const track =
@@ -34,9 +32,15 @@
     if (event.source !== window || event.data?.type !== REQUEST) {
       return;
     }
-    readCaptions().then(
-      (captions) => window.postMessage({ type: RESULT, captions }, location.origin),
-      (error) => window.postMessage({ type: RESULT, error: String(error) }, location.origin),
+    const player = document.getElementById("movie_player") as any;
+    const response = player?.getPlayerResponse?.();
+    // The video id goes back even on failure, so the asker can tell an answer about another video.
+    const videoId: string = response?.videoDetails?.videoId ?? "";
+    const reply = (result: Omit<CaptionsResult, "videoId">) =>
+      window.postMessage({ type: RESULT, videoId, ...result }, location.origin);
+    readCaptions(response).then(
+      (captions) => reply({ captions }),
+      (error) => reply({ error: error instanceof Error ? error.message : String(error) }),
     );
   });
 }
