@@ -5,6 +5,7 @@ Input
 - `>>` at the start of a line means a new speaker begins there. It does not say who is speaking.
 - Speech recognition errors are common, and the punctuation comes from the recognizer.
 - Lines under "Previous context" are for continuity only. Do not translate them.
+- Lines under "Glossary", when present, give terms as `<heard> = <written> (<what the term belongs to>)`.
 
 Rules
 1. Translate every numbered line into natural Korean. Keep the numbers. Never merge, split, or reorder lines.
@@ -13,6 +14,7 @@ Rules
 4. Do not drop content. When a line is only a filler, a false start, or an interjection with nothing to show, output its number with nothing after the bar.
 5. Use the register given in the request and keep it throughout.
 6. Keep the names of people and fan groups in Latin letters. Write a game, a show or another work, and the terms that belong to it, in the official Korean form when you are sure one exists, and in Latin letters otherwise. Do not make up a Korean spelling. Fix a misrecognized name or term only when the title, the channel or the context makes the intended one clear.
+7. When a glossary term is heard in a line and the line is about what the term belongs to, write it exactly as the glossary gives it. Skip a glossary term that does not fit the line.
 
 Output
 One line per input line as `<n>|<Korean>`. Output nothing else.

@@ -1,0 +1,54 @@
+[
+  {
+    "channel": "Gigi Murin Ch. hololive",
+    "about": "this channel's streamer and her fans",
+    "source": "https://virtualyoutuber.fandom.com/wiki/Gigi_Murin",
+    "terms": [
+      {"heard": ["Mooney"], "write": "Murin"},
+      {"heard": ["Grams"], "write": "Grems"}
+    ]
+  },
+  {
+    "topic": ["Deadlock"],
+    "about": "the game Deadlock",
+    "source": "https://deadlock.wiki/Deadlock_heroes",
+    "terms": [
+      {"heard": ["Infernus", "Inferno"], "write": "Infernus"},
+      {"heard": ["Haze", "Hazel"], "write": "Haze"},
+      {"heard": ["Ivy"], "write": "Ivy"}
+    ]
+  },
+  {
+    "topic": ["League of Legends", "League"],
+    "about": "the game League of Legends",
+    "source": "names used by Riot Games Korea",
+    "terms": [
+      {"heard": ["League of Legends", "League"], "write": "롤"},
+      {"heard": ["Worlds", "World's"], "write": "롤드컵"},
+      {"heard": ["Graves"], "write": "그레이브즈"}
+    ]
+  },
+  {
+    "topic": ["Zelda", "Ocarina of Time"],
+    "about": "The Legend of Zelda",
+    "source": "https://namu.moe/w/%EB%82%98%EB%B3%BC and Korean press on the 2026 release",
+    "terms": [
+      {"heard": ["Nabooru", "Naboro", "Naburu"], "write": "나보루"},
+      {"heard": ["Hylian", "Highland"], "write": "하일리아인"},
+      {"heard": ["Gerudo", "Jerudo"], "write": "겔드"},
+      {"heard": ["Ganondorf", "Janondorf"], "write": "가논돌프"},
+      {"heard": ["Link"], "write": "링크"}
+    ]
+  },
+  {
+    "about": "the title of a game or a show",
+    "source": "Korean release titles",
+    "terms": [
+      {"heard": ["Final Fantasy"], "write": "파이널 판타지"},
+      {"heard": ["Heavy Rain"], "write": "헤비 레인"},
+      {"heard": ["Squid Game"], "write": "오징어 게임"},
+      {"heard": ["The Office"], "write": "오피스"},
+      {"heard": ["Spongebob"], "write": "스폰지밥"}
+    ]
+  }
+]

@@ -1,7 +1,6 @@
 package io.github.sjh9714.subtitles.video;
 
 import io.github.sjh9714.subtitles.caption.CaptionEvent;
-import io.github.sjh9714.subtitles.translation.Translator.VideoInfo;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
@@ -45,7 +44,7 @@ class VideoController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
         }
         if (videos.claim(youtubeId, request.channel())) {
-            job.run(youtubeId, new VideoInfo(request.title(), request.channel()), request.events(), positionMs);
+            job.run(youtubeId, request.title(), request.channel(), request.events(), positionMs);
             return ResponseEntity.accepted().body(new StatusResponse(VideoStatus.PENDING));
         }
         return ResponseEntity.ok(new StatusResponse(videos.findStatus(youtubeId).orElseThrow()));

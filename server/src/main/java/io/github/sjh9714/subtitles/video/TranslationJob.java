@@ -6,6 +6,7 @@ import io.github.sjh9714.subtitles.caption.Sentence;
 import io.github.sjh9714.subtitles.caption.SentenceRegrouper;
 import io.github.sjh9714.subtitles.translation.Chunk;
 import io.github.sjh9714.subtitles.translation.Chunker;
+import io.github.sjh9714.subtitles.translation.Glossary;
 import io.github.sjh9714.subtitles.translation.Translator;
 import io.github.sjh9714.subtitles.translation.TranslationReply;
 import io.github.sjh9714.subtitles.translation.TranslationReply.MalformedReplyException;
@@ -46,11 +47,13 @@ class TranslationJob {
 
     private final Translator translator;
     private final VideoRepository videos;
+    private final Glossary glossary;
     private final Map<String, ChunkQueue> running = new ConcurrentHashMap<>();
 
-    TranslationJob(Translator translator, VideoRepository videos) {
+    TranslationJob(Translator translator, VideoRepository videos, Glossary glossary) {
         this.translator = translator;
         this.videos = videos;
+        this.glossary = glossary;
     }
 
     /** Jobs live in this process only, so whatever was in progress before it started was cut off. */
@@ -60,9 +63,10 @@ class TranslationJob {
     }
 
     @Async
-    public void run(String youtubeId, VideoInfo video, List<CaptionEvent> events, long positionMs) {
+    public void run(String youtubeId, String title, String channel, List<CaptionEvent> events, long positionMs) {
         try {
             List<Sentence> sentences = SentenceRegrouper.regroup(CaptionParser.parse(events));
+            VideoInfo video = new VideoInfo(title, channel, glossary.groupsFor(title, channel, sentences));
             Set<Integer> saved = videos.findSavedChunks(youtubeId);
             ChunkQueue queue = new ChunkQueue(
                     Chunker.split(sentences).stream().filter(chunk -> !saved.contains(chunk.index())).toList(),
