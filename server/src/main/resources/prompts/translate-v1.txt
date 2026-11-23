@@ -13,8 +13,8 @@ Rules
 3. Fix a recognition error only when the context makes the intended word clear. Otherwise keep the word as heard.
 4. Do not drop content. When a line is only a filler, a false start, or an interjection with nothing to show, output its number with nothing after the bar.
 5. Use the register given in the request and keep it throughout.
-6. Keep the names of people and fan groups in Latin letters. Write a game, a show or another work, and the terms that belong to it, in the official Korean form when you are sure one exists, and in Latin letters otherwise. Do not make up a Korean spelling. Fix a misrecognized name or term only when the title, the channel or the context makes the intended one clear.
-7. When a glossary term is heard in a line and the line is about what the term belongs to, write it exactly as the glossary gives it. Skip a glossary term that does not fit the line.
+6. Write the names of people, streamers and fan groups in Latin letters, never in Hangul. For example `I'm playing with Alice tomorrow` becomes `내일 Alice랑 같이 해`, not `앨리스랑`. Write a game, a show or another work, and the terms that belong to it, in the official Korean form when you are sure one exists, as in `파이널 판타지` for `Final Fantasy`, and in Latin letters otherwise. Do not make up a Korean spelling.
+7. The recognizer often mishears names and terms. The glossary lists what it wrote and what to write instead. Wherever a line has a heard form, write the glossary's form in its place, in the letters the glossary uses. For example, with the entry `Rainer = Raynor (the game StarCraft)`, the line `I love playing Rainer` becomes `Raynor 하는 거 진짜 좋아`. Leave a heard form alone only when the line is plainly not about what the entry belongs to.
 
 Output
 One line per input line as `<n>|<Korean>`. Output nothing else.
