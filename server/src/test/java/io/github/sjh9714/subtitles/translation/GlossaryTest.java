@@ -67,6 +67,19 @@ class GlossaryTest {
     }
 
     @Test
+    void bracesTheModelCopiedIntoItsReplyAreTakenOut() {
+        VideoInfo video = new VideoInfo("a title", "a channel", List.of(OF_CHANNEL, OF_GAME, OF_ANY));
+        Chunk chunk = new Chunk(0, List.of(), List.of(said("Mooney saw Squid Game in Hazel lane.")));
+
+        String reply = TranslationPrompt.withoutMarks(
+                video, chunk, "1|Mooney{Murin}이 오징어 게임{오징어 게임} 봤어\n2|hazel{Haze} 라인 {Haze}\n3|그냥 {웃음}");
+
+        assertThat(reply).isEqualTo("1|Murin이 오징어 게임 봤어\n2|Haze 라인 Haze\n3|그냥 웃음");
+        assertThat(TranslationPrompt.withoutMarks(new VideoInfo("a title", "x", List.of()), chunk, "1|{그대로}"))
+                .isEqualTo("1|{그대로}");
+    }
+
+    @Test
     void promptHasNoGlossaryBlockWhenNothingIsHeard() {
         VideoInfo video = new VideoInfo("a title", "a channel", List.of(OF_GAME));
         Chunk chunk = new Chunk(0, List.of(), List.of(said("Nothing special.")));

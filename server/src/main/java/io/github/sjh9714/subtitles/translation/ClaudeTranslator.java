@@ -17,6 +17,8 @@ class ClaudeTranslator implements Translator {
 
     @Override
     public Reply translate(VideoInfo video, Chunk chunk) {
-        return claude.ask(MODEL, systemPrompt, TranslationPrompt.userMessage(video, chunk));
+        Reply reply = claude.ask(MODEL, systemPrompt, TranslationPrompt.userMessage(video, chunk));
+        return new Reply(
+                TranslationPrompt.withoutMarks(video, chunk, reply.text()), reply.inputTokens(), reply.outputTokens());
     }
 }

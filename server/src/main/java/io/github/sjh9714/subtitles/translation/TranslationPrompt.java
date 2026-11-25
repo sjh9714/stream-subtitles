@@ -4,14 +4,13 @@ import io.github.sjh9714.subtitles.caption.Sentence;
 import io.github.sjh9714.subtitles.translation.Translator.VideoInfo;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /** Builds the user message for one chunk. The system prompt is resources/prompts/translate-v1.txt. */
 final class TranslationPrompt {
@@ -90,20 +89,44 @@ final class TranslationPrompt {
         if (terms.isEmpty()) {
             return text -> text;
         }
-        Map<String, String> written = new HashMap<>();
-        terms.forEach(term -> written.putIfAbsent(term.form().toLowerCase(Locale.ROOT), term.write()));
+        List<Heard> longestFirst = terms.stream()
+                .sorted(Comparator.comparingInt((Heard term) -> term.form().length()).reversed())
+                .toList();
+        // One group per term, so the term that matched is known without comparing letter cases again.
         Pattern forms = Pattern.compile(
-                terms.stream()
-                        .map(Heard::form)
-                        .sorted(Comparator.comparingInt(String::length).reversed())
-                        .map(Pattern::quote)
+                longestFirst.stream()
+                        .map(term -> "(" + Pattern.quote(term.form()) + ")")
                         .collect(Collectors.joining("|", "(?<![\\p{L}\\p{N}])(?:", ")(?![\\p{L}\\p{N}])")),
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
         return text -> forms.matcher(text).replaceAll(match -> {
-            String write = written.get(match.group().toLowerCase(Locale.ROOT));
+            String write = IntStream.range(0, longestFirst.size())
+                    .filter(i -> match.group(i + 1) != null)
+                    .mapToObj(i -> longestFirst.get(i).write())
+                    .findFirst()
+                    .orElse(match.group());
             return Matcher.quoteReplacement(
                     write.equals(match.group()) ? write : match.group() + "{" + write + "}");
         });
+    }
+
+    /**
+     * Takes out the braces the model sometimes copies into its reply, as in {@code Mooney{Murin}} or
+     * {@code Murin{Murin}}. What stays is the form in the braces.
+     */
+    static String withoutMarks(VideoInfo video, Chunk chunk, String reply) {
+        List<Heard> terms = heard(video, chunk.sentences());
+        if (terms.isEmpty()) {
+            return reply;
+        }
+        String before = terms.stream()
+                .flatMap(term -> Stream.of(term.form(), term.write()))
+                .distinct()
+                .sorted(Comparator.comparingInt(String::length).reversed())
+                .map(Pattern::quote)
+                .collect(Collectors.joining("|"));
+        return Pattern.compile("(?:" + before + ")?\\{([^{}\n]*)\\}", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)
+                .matcher(reply)
+                .replaceAll(match -> Matcher.quoteReplacement(match.group(1)));
     }
 
     private static String line(Sentence sentence, String text) {
