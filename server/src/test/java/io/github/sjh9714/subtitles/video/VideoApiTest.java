@@ -9,15 +9,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.sjh9714.subtitles.translation.Chunk;
+import io.github.sjh9714.subtitles.translation.Glossary.Term;
+import io.github.sjh9714.subtitles.translation.TermExtractor;
 import io.github.sjh9714.subtitles.translation.Translator;
 import io.github.sjh9714.subtitles.translation.Translator.Reply;
+import io.github.sjh9714.subtitles.translation.Translator.VideoInfo;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +60,17 @@ class VideoApiTest {
             ]}
             """;
 
+    /** Five chunks, one more than are translated at the same time. Each names a streamer. */
+    private static final String FIVE_CHUNKS = """
+            {"title": "a title", "channel": "a channel with terms", "events": [
+              {"tStartMs": 1000, "segs": [{"utf8": "Mooney here."}]},
+              {"tStartMs": 300000, "segs": [{"utf8": "Mooney there."}]},
+              {"tStartMs": 600000, "segs": [{"utf8": "Mooney again."}]},
+              {"tStartMs": 900000, "segs": [{"utf8": "Mooney still."}]},
+              {"tStartMs": 1200000, "segs": [{"utf8": "Mooney last."}]}
+            ]}
+            """;
+
     private static final Answer<Reply> PREFIX_EACH_SENTENCE = call -> {
         Chunk chunk = call.getArgument(1);
         StringBuilder text = new StringBuilder();
@@ -70,6 +87,9 @@ class VideoApiTest {
     @MockitoBean
     Translator translator;
 
+    @MockitoBean
+    TermExtractor extractor;
+
     @LocalServerPort
     int port;
 
@@ -83,6 +103,11 @@ class VideoApiTest {
     VideoRepository videos;
 
     private final HttpClient http = HttpClient.newHttpClient();
+
+    @BeforeEach
+    void extractorFindsNothing() {
+        when(extractor.extract(any(), any())).thenReturn(new Reply("", 1, 1));
+    }
 
     @Test
     void translatesOnceThenServesTheStoredResult() throws Exception {
@@ -121,6 +146,45 @@ class VideoApiTest {
         doAnswer(PREFIX_EACH_SENTENCE).when(translator).translate(any(), any());
         assertThat(post("bbbbbbbbbbb", CAPTIONS).statusCode()).isEqualTo(202);
         awaitStatus("bbbbbbbbbbb", "DONE");
+        verify(extractor, times(1)).extract(any(), any());
+    }
+
+    @Test
+    void extractedTermsAreUsedByTheChunksThatStartLaterAndByTheNextVideoOfTheChannel() throws Exception {
+        when(extractor.extract(any(), any()))
+                .thenReturn(new Reply("Mooney = Murin | this channel's streamer\n", 100, 50));
+        Map<String, VideoInfo> toldWith = new ConcurrentHashMap<>();
+        when(translator.translate(any(), any())).thenAnswer(call -> {
+            Chunk chunk = call.getArgument(1);
+            toldWith.put(chunk.sentences().getFirst().text(), call.getArgument(0));
+            if (chunk.index() < 4) {
+                // The first four chunks finish only after the terms are stored, so the fifth starts after that.
+                await().atMost(Duration.ofSeconds(10)).until(() -> storedTerms() == 1);
+            }
+            return PREFIX_EACH_SENTENCE.answer(call);
+        });
+
+        assertThat(post("hhhhhhhhhhh", FIVE_CHUNKS).statusCode()).isEqualTo(202);
+        awaitStatus("hhhhhhhhhhh", "DONE");
+        assertThat(toldWith.get("Mooney last.").glossary())
+                .filteredOn(group -> group.channel() != null)
+                .singleElement()
+                .satisfies(group -> assertThat(group.terms()).containsExactly(new Term(List.of("Mooney"), "Murin")));
+
+        String nextVideo = CAPTIONS.replace("a channel", "a channel with terms");
+        assertThat(post("iiiiiiiiiii", nextVideo).statusCode()).isEqualTo(202);
+        awaitStatus("iiiiiiiiiii", "DONE");
+        assertThat(toldWith.get("It was late.").glossary())
+                .filteredOn(group -> group.channel() != null)
+                .hasSize(1);
+        assertThat(storedTerms()).isEqualTo(1);
+        Long inputTokens = jdbc.sql("""
+                        select sum(input_tokens) from term_extraction
+                        where youtube_id in ('hhhhhhhhhhh', 'iiiiiiiiiii')
+                        """)
+                .query(Long.class)
+                .single();
+        assertThat(inputTokens).isEqualTo(200);
     }
 
     @Test
@@ -196,6 +260,12 @@ class VideoApiTest {
 
         assertThat(post("not-a-video-id", CAPTIONS).statusCode()).isEqualTo(400);
         assertThat(post("ddddddddddd", "{\"channel\": \"a channel\", \"events\": []}").statusCode()).isEqualTo(400);
+    }
+
+    private long storedTerms() {
+        return jdbc.sql("select count(*) from channel_term where channel = 'a channel with terms'")
+                .query(Long.class)
+                .single();
     }
 
     private void awaitStatus(String youtubeId, String status) {

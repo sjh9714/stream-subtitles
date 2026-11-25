@@ -59,6 +59,29 @@ class GlossaryTest {
     }
 
     @Test
+    void extractorIsToldOnlyTheKnownTermsHeardInItsSample() {
+        VideoInfo video = new VideoInfo("a title", "a channel", List.of(OF_CHANNEL, OF_GAME));
+
+        String message = ClaudeTermExtractor.userMessage(video, List.of(said("Ask Mooney's chat.")));
+
+        assertThat(message).contains("\nKnown terms:\n- Mooney = Murin (this channel)\n\nCaptions:\nAsk Mooney's chat.\n");
+        assertThat(message).doesNotContain("Haze");
+    }
+
+    @Test
+    void earlierGroupKeepsAHeardFormThatALaterGroupRepeatsInAnyLetterCase() {
+        Group extracted = new Group(
+                "a channel", null, "a streamer", "", List.of(new Term(List.of("mooney", "Moony"), "Mooney")));
+        Group repeatsOnly = new Group("a channel", null, "a hero", "", List.of(new Term(List.of("HAZE"), "Hayes")));
+
+        assertThat(Glossary.firstWins(List.of(OF_CHANNEL, OF_GAME, extracted, repeatsOnly)))
+                .containsExactly(
+                        OF_CHANNEL,
+                        OF_GAME,
+                        new Group("a channel", null, "a streamer", "", List.of(new Term(List.of("Moony"), "Mooney"))));
+    }
+
+    @Test
     void shippedGlossaryFileCanBeRead() {
         assertThatCode(() -> new Glossary(JsonMapper.builder().build())).doesNotThrowAnyException();
     }

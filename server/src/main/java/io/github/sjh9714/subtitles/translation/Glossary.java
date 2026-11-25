@@ -4,7 +4,11 @@ import io.github.sjh9714.subtitles.caption.Sentence;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
@@ -56,6 +60,30 @@ public class Glossary {
                 .filter(group -> group.topic() == null
                         || group.topic().stream().anyMatch(word -> mentions(text, word)))
                 .toList();
+    }
+
+    /**
+     * The same groups without the heard forms that an earlier group already has, in any letter case.
+     * Hand-written groups are put first, so they win over what the server extracted by itself.
+     */
+    public static List<Group> firstWins(List<Group> groups) {
+        Set<String> taken = new HashSet<>();
+        List<Group> result = new ArrayList<>();
+        for (Group group : groups) {
+            List<Term> terms = new ArrayList<>();
+            for (Term term : group.terms()) {
+                List<String> heard = term.heard().stream()
+                        .filter(form -> taken.add(form.toLowerCase(Locale.ROOT)))
+                        .toList();
+                if (!heard.isEmpty()) {
+                    terms.add(new Term(heard, term.write()));
+                }
+            }
+            if (!terms.isEmpty()) {
+                result.add(new Group(group.channel(), group.topic(), group.about(), group.source(), terms));
+            }
+        }
+        return result;
     }
 
     /** Whether the text has this form as a whole word or phrase, in any letter case. */

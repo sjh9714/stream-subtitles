@@ -15,7 +15,10 @@ final class TranslationPrompt {
         message.append("Title: ").append(video.title()).append('\n');
         message.append("Channel: ").append(video.channel()).append('\n');
         message.append("Register: casual Korean 반말.\n");
-        message.append(glossary(video, chunk));
+        String terms = termsHeard(video, chunk.sentences());
+        if (!terms.isEmpty()) {
+            message.append("\nGlossary:\n").append(terms);
+        }
         if (!chunk.context().isEmpty()) {
             message.append("\nPrevious context:\n");
             for (Sentence sentence : chunk.context()) {
@@ -30,9 +33,12 @@ final class TranslationPrompt {
         return message.toString();
     }
 
-    /** The glossary terms heard in this chunk, so a long glossary does not ride along with every call. */
-    private static String glossary(VideoInfo video, Chunk chunk) {
-        String text = chunk.sentences().stream().map(Sentence::text).collect(Collectors.joining("\n"));
+    /**
+     * The glossary terms heard in these sentences, one per line, so a long glossary does not ride along
+     * with every call.
+     */
+    static String termsHeard(VideoInfo video, List<Sentence> sentences) {
+        String text = sentences.stream().map(Sentence::text).collect(Collectors.joining("\n"));
         StringBuilder block = new StringBuilder();
         for (Glossary.Group group : video.glossary()) {
             for (Glossary.Term term : group.terms()) {
@@ -47,7 +53,7 @@ final class TranslationPrompt {
                                 .append(")\n"));
             }
         }
-        return block.isEmpty() ? "" : "\nGlossary:\n" + block;
+        return block.toString();
     }
 
     private static String line(Sentence sentence) {
