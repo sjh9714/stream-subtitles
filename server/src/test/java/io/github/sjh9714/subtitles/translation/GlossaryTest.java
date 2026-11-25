@@ -51,6 +51,22 @@ class GlossaryTest {
     }
 
     @Test
+    void captionLinesCarryTheWrittenFormAfterEachHeardFormAndTheContextDoesNot() {
+        Group ofLeague = new Group(
+                null, null, "the game League of Legends", "", List.of(new Term(List.of("League", "League of Legends"), "롤")));
+        VideoInfo video = new VideoInfo("a title", "a channel", List.of(OF_CHANNEL, OF_GAME, ofLeague));
+        Chunk chunk = new Chunk(
+                0,
+                List.of(said("Mooney said hi.")),
+                List.of(said("mooney plays League of Legends, not Haze."), said("Hazelnut league.")));
+
+        String message = TranslationPrompt.userMessage(video, chunk);
+
+        assertThat(message).contains("Previous context:\nMooney said hi.\n");
+        assertThat(message).contains("1|mooney{Murin} plays League of Legends{롤}, not Haze.\n2|Hazelnut league{롤}.\n");
+    }
+
+    @Test
     void promptHasNoGlossaryBlockWhenNothingIsHeard() {
         VideoInfo video = new VideoInfo("a title", "a channel", List.of(OF_GAME));
         Chunk chunk = new Chunk(0, List.of(), List.of(said("Nothing special.")));
