@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>stream-subtitles 설정</title>
+    <style>
+      body { font: 14px system-ui, sans-serif; margin: 16px; min-width: 360px; }
+      label { display: block; margin-top: 12px; }
+      input { box-sizing: border-box; width: 100%; margin-top: 4px; padding: 6px; }
+      button { margin-top: 16px; padding: 6px 14px; }
+      #result { margin-left: 8px; }
+    </style>
+  </head>
+  <body>
+    <label>서버 주소 <input id="server" type="url" placeholder="http://127.0.0.1:8787" /></label>
+    <label>토큰 (서버가 요구할 때만) <input id="token" type="password" autocomplete="off" /></label>
+    <button id="save">저장</button><span id="result"></span>
+    <script src="dist/options.js"></script>
+  </body>
+</html>

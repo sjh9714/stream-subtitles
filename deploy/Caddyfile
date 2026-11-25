@@ -1,0 +1,7 @@
+# SITE_ADDRESS is the name the machine is reached by, such as 203-0-113-7.sslip.io for the address 203.0.113.7.
+{$SITE_ADDRESS} {
+	request_body {
+		max_size 20MB
+	}
+	reverse_proxy server:8787
+}

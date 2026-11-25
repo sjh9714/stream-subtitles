@@ -11,7 +11,9 @@ interface Captions {
   events: CaptionEvent[];
 }
 
+/** The chunk is the piece of the video the subtitle was translated in. Chunks arrive whole. */
 interface Subtitle {
+  chunk: number;
   startMs: number;
   endMs: number;
   text: string;
@@ -34,15 +36,22 @@ interface TranslateClick {
  * The position is where the viewer is watching, which the server translates first.
  */
 type ServerRequest =
-  | { kind: "get"; videoId: string; positionMs: number }
+  | { kind: "get"; videoId: string; positionMs: number; have: number[] }
   | { kind: "post"; captions: Captions; positionMs: number };
+
+/** Where the server is and the token it asks for. Set on the options page, kept in this browser. */
+interface Settings {
+  server: string;
+  token: string;
+}
 
 /**
  * NOT_FOUND means the server has never seen the video. UNREACHABLE means the server did not answer.
- * While PENDING the subtitles are the part translated so far, and ready says whether that covers the position.
+ * DENIED means it did not accept the token. LIMIT means this month's spending cap is reached.
+ * The subtitles are those of the chunks the request did not list, and ready says whether the position is covered.
  */
 interface ServerReply {
-  status: "PENDING" | "DONE" | "FAILED" | "NOT_FOUND" | "UNREACHABLE";
+  status: "PENDING" | "DONE" | "FAILED" | "NOT_FOUND" | "UNREACHABLE" | "DENIED" | "LIMIT";
   ready?: boolean;
   subtitles?: Subtitle[];
 }

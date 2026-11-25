@@ -1,21 +1,31 @@
 // Talks to the translation server. A content script's own requests are bound by the page's
 // cross-origin rules, so every server call goes through this worker.
 {
-  const SERVER = "http://127.0.0.1:8787";
+  const DEFAULTS: Settings = { server: "http://127.0.0.1:8787", token: "" };
 
   async function call(request: ServerRequest): Promise<ServerReply> {
     const position = `?positionMs=${request.positionMs}`;
     try {
+      const { server, token } = await chrome.storage.local.get<Settings>(DEFAULTS);
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       const response =
         request.kind === "get"
-          ? await fetch(`${SERVER}/api/videos/${request.videoId}/subtitles${position}`)
-          : await fetch(`${SERVER}/api/videos/${request.captions.videoId}/translation${position}`, {
+          ? await fetch(`${server}/api/videos/${request.videoId}/subtitles${position}&have=${request.have}`, {
+              headers,
+            })
+          : await fetch(`${server}/api/videos/${request.captions.videoId}/translation${position}`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { ...headers, "Content-Type": "application/json" },
               body: JSON.stringify(request.captions),
             });
       if (response.status === 404) {
         return { status: "NOT_FOUND" };
+      }
+      if (response.status === 401) {
+        return { status: "DENIED" };
+      }
+      if (response.status === 429) {
+        return { status: "LIMIT" };
       }
       if (!response.ok) {
         return { status: "FAILED" };

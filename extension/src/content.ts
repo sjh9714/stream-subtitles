@@ -12,6 +12,8 @@
 
   let videoId = "";
   let subtitles: Subtitle[] = [];
+  /** The chunks those subtitles came from, so the server sends only the others. */
+  let have = new Set<number>();
   /** Shown when no subtitle covers the current time: a wait or an error, or nothing. */
   let notice = "";
   let overlay: HTMLElement | null = null;
@@ -100,6 +102,16 @@
     show(inAd ? "" : (subtitleAt(positionMs())?.text ?? notice));
   }
 
+  /** Adds the chunks a reply brought. The server leaves out the chunks it was told are here already. */
+  function keep(fresh: Subtitle[] | undefined) {
+    if (!fresh?.length) {
+      return;
+    }
+    subtitles = subtitles.concat(fresh.filter((subtitle) => !have.has(subtitle.chunk)));
+    subtitles.sort((a, b) => a.startMs - b.startMs);
+    fresh.forEach((subtitle) => have.add(subtitle.chunk));
+  }
+
   /** Sets the notice. A wait stays until it is replaced. An error goes away by itself. */
   function tell(text: string, stays: boolean) {
     notice = text;
@@ -121,13 +133,14 @@
   async function load(id: string, clicked: boolean) {
     const mine = ++loads;
     const current = () => mine === loads && id === videoId;
+    const look = () => askServer({ kind: "get", videoId: id, positionMs: positionMs(), have: [...have] });
     const send = async () => {
       tell("자막 번역 중", true); // reading a long video's captions alone takes several seconds
       return askServer({ kind: "post", captions: await readCaptions(id), positionMs: positionMs() });
     };
     try {
-      let reply = await askServer({ kind: "get", videoId: id, positionMs: positionMs() });
-      if (!clicked && (reply.status === "NOT_FOUND" || reply.status === "UNREACHABLE")) {
+      let reply = await look();
+      if (!clicked && ["NOT_FOUND", "UNREACHABLE", "DENIED"].includes(reply.status)) {
         return;
       }
       if (reply.status === "NOT_FOUND") {
@@ -135,7 +148,7 @@
       }
       let resent = false;
       while (current()) {
-        subtitles = reply.subtitles ?? subtitles;
+        keep(reply.subtitles);
         if (reply.status === "FAILED" && !resent) {
           // The server was restarted or a chunk failed. Sending again translates only what is missing.
           resent = true;
@@ -147,7 +160,7 @@
         }
         tell(reply.ready ? "" : "자막 번역 중", true);
         await sleep(POLL_MS);
-        reply = await askServer({ kind: "get", videoId: id, positionMs: positionMs() });
+        reply = await look();
       }
       if (!current()) {
         return; // the viewer moved to another video, or clicked again
@@ -155,7 +168,12 @@
       if (reply.status === "DONE") {
         tell("", true);
       } else {
-        tell(reply.status === "UNREACHABLE" ? "자막 서버에 연결할 수 없음" : "자막 번역 실패", false);
+        const problems: Partial<Record<ServerReply["status"], string>> = {
+          UNREACHABLE: "자막 서버에 연결할 수 없음",
+          DENIED: "자막 서버가 토큰을 받지 않음",
+          LIMIT: "이번 달 번역 한도에 닿음",
+        };
+        tell(problems[reply.status] ?? "자막 번역 실패", false);
       }
     } catch (error) {
       if (current()) {
@@ -172,6 +190,7 @@
     }
     videoId = id;
     subtitles = [];
+    have = new Set();
     loads++;
     tell("", true);
     if (id) {

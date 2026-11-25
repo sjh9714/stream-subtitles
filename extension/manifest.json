@@ -2,9 +2,12 @@
   "manifest_version": 3,
   "name": "stream-subtitles",
   "version": "0.1.0",
-  "description": "Shows sentence-level Korean subtitles on English YouTube stream archives, translated by a local server.",
+  "description": "Shows sentence-level Korean subtitles on English YouTube stream archives, translated by your own server.",
   "action": { "default_title": "이 영상의 자막 번역하기" },
+  "options_ui": { "page": "options.html", "open_in_tab": false },
+  "permissions": ["storage"],
   "host_permissions": ["http://127.0.0.1:8787/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
   "background": { "service_worker": "dist/background.js" },
   "content_scripts": [
     { "matches": ["https://www.youtube.com/*"], "js": ["dist/page.js"], "world": "MAIN", "run_at": "document_idle" },

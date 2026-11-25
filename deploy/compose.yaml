@@ -1,0 +1,46 @@
+# The whole service on one machine: the server, its database, and Caddy, which gets the HTTPS
+# certificate by itself. The values come from deploy/.env, which stays on that machine (see env.example).
+# Start with: docker compose up -d --build
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: subtitles
+      POSTGRES_USER: subtitles
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?}
+    volumes:
+      - subtitles-data:/var/lib/postgresql/data
+
+  # Only Caddy is published. The server listens inside the compose network and asks for the token.
+  server:
+    build: ../server
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/subtitles
+      DATABASE_USER: subtitles
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?}
+      SERVER_ADDRESS: 0.0.0.0
+      API_TOKEN: ${API_TOKEN:?}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?}
+      MONTHLY_CAP_USD: ${MONTHLY_CAP_USD:-10}
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  subtitles-data:
+  caddy-data:
