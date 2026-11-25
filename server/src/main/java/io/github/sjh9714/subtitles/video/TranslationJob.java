@@ -186,7 +186,7 @@ class TranslationJob {
             String korean = lines.get(i);
             if (!korean.isBlank()) {
                 Sentence sentence = chunk.sentences().get(i);
-                subtitles.add(new Subtitle(i, sentence.startMs(), sentence.endMs(), korean));
+                subtitles.add(new Subtitle(chunk.index(), i, sentence.startMs(), sentence.endMs(), korean));
             }
         }
         videos.saveChunk(youtubeId, subtitles, new ChunkUsage(

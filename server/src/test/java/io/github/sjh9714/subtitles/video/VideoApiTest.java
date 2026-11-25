@@ -227,6 +227,34 @@ class VideoApiTest {
         JsonNode subtitles = get("fffffffffff").get("subtitles");
         assertThat(subtitles.get(0).get("text").asString()).isEqualTo("ko:Hello.");
         assertThat(subtitles.get(1).get("text").asString()).isEqualTo("ko:Bye.");
+
+        JsonNode missing = json.readTree(http.send(
+                        HttpRequest.newBuilder(uri("fffffffffff", "subtitles?have=0")).build(),
+                        HttpResponse.BodyHandlers.ofString())
+                .body());
+        assertThat(missing.get("subtitles")).hasSize(1);
+        assertThat(missing.get("subtitles").get(0).get("chunk").asInt()).isEqualTo(1);
+        assertThat(missing.get("subtitles").get(0).get("text").asString()).isEqualTo("ko:Bye.");
+    }
+
+    @Test
+    void videoThatNeedsTheModelIsRefusedOnceTheMonthlyCapIsReached() throws Exception {
+        when(translator.translate(any(), any())).thenAnswer(PREFIX_EACH_SENTENCE);
+        assertThat(post("jjjjjjjjjjj", CAPTIONS).statusCode()).isEqualTo(202);
+        awaitStatus("jjjjjjjjjjj", "DONE");
+        // Ten dollars of Opus output, more than the default cap allows.
+        jdbc.sql("update term_extraction set output_tokens = 500001 where youtube_id = 'jjjjjjjjjjj'")
+                .update();
+        try {
+            assertThat(post("kkkkkkkkkkk", CAPTIONS).statusCode()).isEqualTo(429);
+            assertThat(post("jjjjjjjjjjj", CAPTIONS).statusCode()).isEqualTo(200);
+            assertThat(get("jjjjjjjjjjj").get("subtitles")).hasSize(2);
+        } finally {
+            jdbc.sql("update term_extraction set output_tokens = 1 where youtube_id = 'jjjjjjjjjjj'")
+                    .update();
+        }
+        assertThat(post("kkkkkkkkkkk", CAPTIONS).statusCode()).isEqualTo(202);
+        awaitStatus("kkkkkkkkkkk", "DONE");
     }
 
     @Test
@@ -236,7 +264,7 @@ class VideoApiTest {
                 .update();
         videos.saveChunk(
                 "ggggggggggg",
-                List.of(new Subtitle(0, 1000, 4000, "saved before the restart")),
+                List.of(new Subtitle(0, 0, 1000, 4000, "saved before the restart")),
                 new VideoRepository.ChunkUsage(0, 10, 20, 30));
 
         videos.failInterrupted();

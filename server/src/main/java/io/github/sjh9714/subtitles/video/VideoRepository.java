@@ -44,14 +44,19 @@ public class VideoRepository {
                 .map(VideoStatus::valueOf);
     }
 
-    public List<Subtitle> findSubtitles(String youtubeId) {
-        return jdbc.sql("""
-                        select seq, start_ms, end_ms, text from subtitle
-                        where youtube_id = :id order by chunk_index, seq
-                        """)
+    /** The stored subtitles in video order, without the chunks the caller says it already has. */
+    public List<Subtitle> findSubtitles(String youtubeId, Set<Integer> have) {
+        return jdbc.sql("select chunk_index, seq, start_ms, end_ms, text from subtitle where youtube_id = :id"
+                        + (have.isEmpty() ? "" : " and chunk_index not in (:have)")
+                        + " order by chunk_index, seq")
                 .param("id", youtubeId)
+                .param("have", have)
                 .query((row, n) -> new Subtitle(
-                        row.getInt("seq"), row.getLong("start_ms"), row.getLong("end_ms"), row.getString("text")))
+                        row.getInt("chunk_index"),
+                        row.getInt("seq"),
+                        row.getLong("start_ms"),
+                        row.getLong("end_ms"),
+                        row.getString("text")))
                 .list();
     }
 
@@ -69,7 +74,7 @@ public class VideoRepository {
         jdbcTemplate.batchUpdate(
                 "insert into subtitle (youtube_id, chunk_index, seq, start_ms, end_ms, text) values (?, ?, ?, ?, ?, ?)",
                 subtitles.stream()
-                        .map(s -> new Object[] {youtubeId, usage.chunkIndex(), s.seq(), s.startMs(), s.endMs(), s.text()})
+                        .map(s -> new Object[] {youtubeId, s.chunk(), s.seq(), s.startMs(), s.endMs(), s.text()})
                         .toList());
         jdbc.sql("""
                         insert into translation_chunk (youtube_id, chunk_index, input_tokens, output_tokens, millis)
