@@ -6,7 +6,13 @@ spring:
     username: ${DATABASE_USER:subtitles}
     password: ${DATABASE_PASSWORD:subtitles}
 
-# The API has no authentication or request limits yet, so it listens on this machine only.
+subtitles:
+  # The owner's token. Left empty, every request is let in, which the server allows only while it listens
+  # on this machine alone.
+  api-token: ${API_TOKEN:}
+  # New translations stop once this month's model calls have cost this much.
+  monthly-cap-usd: ${MONTHLY_CAP_USD:10}
+
 server:
-  address: 127.0.0.1
+  address: ${SERVER_ADDRESS:127.0.0.1}
   port: 8787
