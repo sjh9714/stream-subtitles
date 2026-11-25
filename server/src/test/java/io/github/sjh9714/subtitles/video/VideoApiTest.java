@@ -242,16 +242,14 @@ class VideoApiTest {
         when(translator.translate(any(), any())).thenAnswer(PREFIX_EACH_SENTENCE);
         assertThat(post("jjjjjjjjjjj", CAPTIONS).statusCode()).isEqualTo(202);
         awaitStatus("jjjjjjjjjjj", "DONE");
-        // Ten dollars of Opus output, more than the default cap allows.
-        jdbc.sql("update term_extraction set output_tokens = 500001 where youtube_id = 'jjjjjjjjjjj'")
+        jdbc.sql("insert into model_call (model, input_tokens, output_tokens, usd) values ('a model', 1, 1, 10)")
                 .update();
         try {
             assertThat(post("kkkkkkkkkkk", CAPTIONS).statusCode()).isEqualTo(429);
             assertThat(post("jjjjjjjjjjj", CAPTIONS).statusCode()).isEqualTo(200);
             assertThat(get("jjjjjjjjjjj").get("subtitles")).hasSize(2);
         } finally {
-            jdbc.sql("update term_extraction set output_tokens = 1 where youtube_id = 'jjjjjjjjjjj'")
-                    .update();
+            jdbc.sql("delete from model_call where model = 'a model'").update();
         }
         assertThat(post("kkkkkkkkkkk", CAPTIONS).statusCode()).isEqualTo(202);
         awaitStatus("kkkkkkkkkkk", "DONE");

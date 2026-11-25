@@ -6,7 +6,8 @@ import org.springframework.stereotype.Component;
 @Component
 class ClaudeTranslator implements Translator {
 
-    private static final String MODEL = "claude-haiku-5-5";
+    /** Priced as of 2026-11-23. */
+    private static final Model MODEL = new Model("claude-haiku-5-5", 0.10, 0.50);
 
     private final String systemPrompt = Claude.readPrompt("prompts/translate-v1.txt");
     private final Claude claude;

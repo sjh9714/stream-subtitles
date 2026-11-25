@@ -1,6 +1,7 @@
 package io.github.sjh9714.subtitles.video;
 
 import io.github.sjh9714.subtitles.caption.CaptionEvent;
+import io.github.sjh9714.subtitles.translation.Spending;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;

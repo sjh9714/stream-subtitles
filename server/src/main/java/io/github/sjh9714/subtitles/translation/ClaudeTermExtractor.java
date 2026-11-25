@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
 @Component
 class ClaudeTermExtractor implements TermExtractor {
 
-    private static final String MODEL = "claude-opus-5-5";
+    /** Priced as of 2026-11-23. */
+    private static final Model MODEL = new Model("claude-opus-5-5", 4, 20);
 
     private final String systemPrompt = Claude.readPrompt("prompts/extract-terms-v1.txt");
     private final Claude claude;

@@ -18,7 +18,10 @@ import java.util.stream.Collectors;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
-/** Sends one request to a Claude model. Reads ANTHROPIC_API_KEY from the environment on first use. */
+/**
+ * Sends one request to a Claude model. Every model call goes through here, so this is where the
+ * month's spending is counted and stopped. Reads ANTHROPIC_API_KEY from the environment on first use.
+ */
 @Component
 class Claude {
 
@@ -28,12 +31,17 @@ class Claude {
     private static final int MAX_CALLS = 8;
 
     private final Semaphore calls = new Semaphore(MAX_CALLS);
+    private final Spending spending;
 
     private AnthropicClient client;
 
-    Reply ask(String model, String systemPrompt, String userMessage) {
+    Claude(Spending spending) {
+        this.spending = spending;
+    }
+
+    Reply ask(Model model, String systemPrompt, String userMessage) {
         MessageCreateParams params = MessageCreateParams.builder()
-                .model(model)
+                .model(model.id())
                 .maxTokens(MAX_TOKENS)
                 .system(systemPrompt)
                 .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build())
@@ -42,21 +50,29 @@ class Claude {
 
         MessageAccumulator accumulator = MessageAccumulator.create();
         calls.acquireUninterruptibly();
-        try (StreamResponse<RawMessageStreamEvent> stream = client().messages().createStreaming(params)) {
-            stream.stream().forEach(accumulator::accumulate);
+        try {
+            if (spending.capReached()) {
+                throw new IllegalStateException("this month's spending cap is reached");
+            }
+            try (StreamResponse<RawMessageStreamEvent> stream = client().messages().createStreaming(params)) {
+                stream.stream().forEach(accumulator::accumulate);
+            }
         } finally {
             calls.release();
         }
         Message message = accumulator.message();
+        Reply reply = new Reply(
+                message.content().stream()
+                        .flatMap(block -> block.text().stream())
+                        .map(text -> text.text())
+                        .collect(Collectors.joining()),
+                message.usage().inputTokens(),
+                message.usage().outputTokens());
+        spending.record(model, reply); // a reply that stopped early is billed too
         if (!message.stopReason().map(StopReason.END_TURN::equals).orElse(false)) {
             throw new IllegalStateException("the model stopped early: " + message.stopReason());
         }
-
-        String reply = message.content().stream()
-                .flatMap(block -> block.text().stream())
-                .map(text -> text.text())
-                .collect(Collectors.joining());
-        return new Reply(reply, message.usage().inputTokens(), message.usage().outputTokens());
+        return reply;
     }
 
     static String readPrompt(String path) {

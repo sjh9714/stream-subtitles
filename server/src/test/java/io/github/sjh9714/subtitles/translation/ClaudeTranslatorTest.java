@@ -9,6 +9,6 @@ class ClaudeTranslatorTest {
     /** The server must start, and serve stored subtitles, on a machine that has no API key. */
     @Test
     void canBeCreatedWithoutAnApiKey() {
-        assertThatCode(() -> new ClaudeTranslator(new Claude())).doesNotThrowAnyException();
+        assertThatCode(() -> new ClaudeTranslator(new Claude(null))).doesNotThrowAnyException();
     }
 }
