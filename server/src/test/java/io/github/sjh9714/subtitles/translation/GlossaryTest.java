@@ -46,12 +46,12 @@ class GlossaryTest {
 
         String message = TranslationPrompt.userMessage(video, chunk);
 
-        assertThat(message).contains("- Hazel = Haze (the game Deadlock)\n", "- Mooney = Murin (this channel)\n");
-        assertThat(message).doesNotContain("- Haze = Haze", "Squid Game");
+        assertThat(message).contains("\nGlossary:\n- Murin (this channel)\n- Haze (the game Deadlock)\n\nCaptions:\n");
+        assertThat(message).doesNotContain("Squid Game", "오징어 게임");
     }
 
     @Test
-    void captionLinesCarryTheWrittenFormAfterEachHeardFormAndTheContextDoesNot() {
+    void captionLinesHaveTheWrittenFormInPlaceOfEachHeardFormAndTheContextDoesNot() {
         Group ofLeague = new Group(
                 null, null, "the game League of Legends", "", List.of(new Term(List.of("League", "League of Legends"), "롤")));
         VideoInfo video = new VideoInfo("a title", "a channel", List.of(OF_CHANNEL, OF_GAME, ofLeague));
@@ -63,20 +63,8 @@ class GlossaryTest {
         String message = TranslationPrompt.userMessage(video, chunk);
 
         assertThat(message).contains("Previous context:\nMooney said hi.\n");
-        assertThat(message).contains("1|mooney{Murin} plays League of Legends{롤}, not Haze.\n2|Hazelnut league{롤}.\n");
-    }
-
-    @Test
-    void bracesTheModelCopiedIntoItsReplyAreTakenOut() {
-        VideoInfo video = new VideoInfo("a title", "a channel", List.of(OF_CHANNEL, OF_GAME, OF_ANY));
-        Chunk chunk = new Chunk(0, List.of(), List.of(said("Mooney saw Squid Game in Hazel lane.")));
-
-        String reply = TranslationPrompt.withoutMarks(
-                video, chunk, "1|Mooney{Murin}이 오징어 게임{오징어 게임} 봤어\n2|hazel{Haze} 라인 {Haze}\n3|그냥 {웃음}");
-
-        assertThat(reply).isEqualTo("1|Murin이 오징어 게임 봤어\n2|Haze 라인 Haze\n3|그냥 웃음");
-        assertThat(TranslationPrompt.withoutMarks(new VideoInfo("a title", "x", List.of()), chunk, "1|{그대로}"))
-                .isEqualTo("1|{그대로}");
+        assertThat(message).contains("- Murin (this channel)\n- Haze (the game Deadlock)\n- 롤 (the game League of Legends)\n\nPrev");
+        assertThat(message).contains("1|Murin plays 롤, not Haze.\n2|Hazelnut 롤.\n");
     }
 
     @Test
